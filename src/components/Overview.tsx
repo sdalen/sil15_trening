@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { teams, type TeamId } from '../data/sil15.js'
 import { average, colorTeam, countsInStats, countStatuses, type Activity, type Person } from '../lib/model'
-import { daysUntil, longDate, pctText, shortDate, THEME } from '../lib/ui'
+import { daysUntil, longDate, pctColor, pctText, shortDate, store, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { ActLabel, Card, Empty, Legend, NrBadge, PersonBadge, Pct, SplitBar, StatusChip, TeamBadge } from './common'
 
@@ -10,6 +10,11 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
   const { pastActs, stats, model, now } = ctx
   const [showAll, setShowAll] = useState(false)
   const [list, setList] = useState<'under50' | 'over80' | null>(null)
+  // Grenser for lavt/høyt oppmøte i prosent – justeres med slider, huskes i nettleseren
+  const [lowPct, setLowPct] = useState<number>(() => store.get('lowPct', 50))
+  const [highPct, setHighPct] = useState<number>(() => store.get('highPct', 80))
+  useEffect(() => store.set('lowPct', lowPct), [lowPct])
+  useEffect(() => store.set('highPct', highPct), [highPct])
   // Sluttede spillere og lagledere holdes utenfor snitt og rangering
   const population = ctx.population.filter(countsInStats)
   const pcts = population.map(p => stats.get(p.id)!.pct)
@@ -34,8 +39,8 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
     .map(p => ({ p, s: stats.get(p.id)! }))
     .filter(x => x.s.pct !== null)
     .sort((a, b) => b.s.pct! - a.s.pct! || b.s.ja - a.s.ja)
-  const under50 = ranked.filter(x => x.s.pct! < 0.5)
-  const over80 = ranked.filter(x => x.s.pct! > 0.8)
+  const under50 = ranked.filter(x => x.s.pct! < lowPct / 100)
+  const over80 = ranked.filter(x => x.s.pct! >= highPct / 100)
 
   return (
     <div className="space-y-4">
@@ -88,14 +93,14 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
           sub={worst ? `${worst.ja}/${worst.of} · Trening ${shortDate(worst.a.at)} kl. ${worst.a.time}` : 'Ingen treninger'}
         />
         <Kpi
-          label="Under 50 %"
+          label={`Under ${lowPct} %`}
           value={<span className={under50.length ? 'text-rose-700' : ''}>{under50.length}</span>}
           sub={ctx.group === "stab" ? "i stab med lavt oppmøte" : "spillere med lavt oppmøte"}
           onClick={() => setList(l => (l === 'under50' ? null : 'under50'))}
           active={list === 'under50'}
         />
         <Kpi
-          label="Over 80 %"
+          label={`Minst ${highPct} %`}
           value={<span className={over80.length ? 'text-emerald-700' : ''}>{over80.length}</span>}
           sub={ctx.group === "stab" ? "i stab med høyt oppmøte" : "spillere med høyt oppmøte"}
           onClick={() => setList(l => (l === 'over80' ? null : 'over80'))}
@@ -105,13 +110,34 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
 
       {list && (
         <Card
-          title={list === 'under50' ? 'Under 50 % oppmøte' : 'Over 80 % oppmøte'}
+          title={list === 'under50' ? `Under ${lowPct} % oppmøte` : `Minst ${highPct} % oppmøte`}
           right={
             <button onClick={() => setList(null)} className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
               Lukk
             </button>
           }
         >
+          <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 text-sm">
+            <label htmlFor="pct-slider" className="shrink-0 font-semibold text-slate-600">
+              {list === 'under50' ? 'Under' : 'Minst'}
+            </label>
+            <input
+              id="pct-slider"
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={list === 'under50' ? lowPct : highPct}
+              onChange={e => (list === 'under50' ? setLowPct : setHighPct)(Number(e.target.value))}
+              className={`w-full ${sliderAccent((list === 'under50' ? lowPct : highPct) / 100)}`}
+            />
+            <span className={`w-12 shrink-0 text-right font-bold tabular-nums ${pctColor((list === 'under50' ? lowPct : highPct) / 100)}`}>
+              {list === 'under50' ? lowPct : highPct} %
+            </span>
+            <span className="hidden shrink-0 text-slate-500 sm:inline">
+              · {(list === 'under50' ? under50 : over80).length} spillere
+            </span>
+          </div>
           <TeamSplit items={list === 'under50' ? [...under50].reverse() : over80} all={ranked} ctx={ctx} bad={list === 'under50'} />
         </Card>
       )}
@@ -156,6 +182,13 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
       <DataQuality ctx={ctx} />
     </div>
   )
+}
+
+/** Samme skala som pctColor (grønn ≥ 75 %, gul ≥ 50 %, ellers rød) – for slideren */
+function sliderAccent(p: number) {
+  if (p >= 0.75) return 'accent-emerald-600'
+  if (p >= 0.5) return 'accent-amber-500'
+  return 'accent-rose-600'
 }
 
 function actPct(people: Person[], a: Activity, noAnswerIsAbsent: boolean) {
