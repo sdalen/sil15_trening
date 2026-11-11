@@ -108,6 +108,52 @@ export function parseExport(text: string): ParsedExport {
   }
 }
 
+const UNCODE: Record<Exclude<Status, null>, string> = { ja: '3', nei: '5', 'ikke-svart': '1' }
+
+/**
+ * Slår sammen to Rubic-eksporter til én (som CSV-tekst i samme format).
+ * - Aktiviteter (kolonner) fra begge filer tas med, sortert på dato.
+ * - For aktiviteter som finnes i begge, vinner den nye fila for personene som står i den
+ *   (statuser oppdateres etter hver aktivitet). Personer som ikke står i den nye fila beholder gamle verdier.
+ */
+export function mergeExports(oldText: string, newText: string): string {
+  const a = parseExport(oldText)
+  const b = parseExport(newText)
+  // Nøkkel = tidspunkt + løpenummer, fordi to aktiviteter kan ha samme dato og klokkeslett (f.eks. turneringsdager)
+  const keysOf = (cs: { date: string; time: string }[]) => {
+    const seen = new Map<string, number>()
+    return cs.map(c => {
+      const t = `${c.date} ${c.time}`
+      const k = seen.get(t) ?? 0
+      seen.set(t, k + 1)
+      return `${t} #${k}`
+    })
+  }
+  const aKeys = keysOf(a.cols)
+  const bKeys = keysOf(b.cols)
+  const all = new Map<string, { date: string; time: string }>()
+  a.cols.forEach((c, i) => all.set(aKeys[i], c))
+  b.cols.forEach((c, i) => all.set(bKeys[i], c))
+  const order = [...all.keys()].sort()
+  const cols = order.map(k => all.get(k)!)
+  const colPos = new Map(order.map((k, i) => [k, i]))
+
+  const people = new Map<string, { name: string; total: string; codes: Status[] }>()
+  for (const [x, xKeys] of [[a, aKeys], [b, bKeys]] as const) {
+    for (const r of x.rows) {
+      const k = fold(r.name)
+      const p = people.get(k) ?? { name: r.name, total: '', codes: new Array<Status>(cols.length).fill(null) }
+      if (r.total) p.total = r.total
+      xKeys.forEach((k, i) => (p.codes[colPos.get(k)!] = r.codes[i]))
+      people.set(k, p)
+    }
+  }
+  const cell = (v: string) => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+  const header = ['Navn', 'Totalt', ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})`)]
+  const lines = [header, ...[...people.values()].map(p => [p.name, p.total, ...p.codes.map(s => (s ? UNCODE[s] : ''))])]
+  return lines.map(l => l.map(cell).join(',')).join('\n') + '\n'
+}
+
 function makeActivity(idx: number, date: string, time: string, kind: ActKind, source: string): Activity {
   const tournament = tournaments.find(t => t.date === date)
   return {

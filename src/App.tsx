@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { teams, type TeamId } from './data/sil15.js'
 import {
-  buildModel, colorTeam, fold, parseExport, inPeriod, matchesType, namesIn, personStats, PERIODS,
+  buildModel, colorTeam, fold, mergeExports, parseExport, inPeriod, matchesType, namesIn, personStats, PERIODS,
   type ActType, type CsvFile, type Model, type Overrides, type Period, type Person,
 } from './lib/model'
 import { unlock, type RosterEntry, type SealedEntry } from './lib/rosterCrypto'
@@ -28,7 +28,8 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 export default function App() {
-  const [csv, setCsv] = useState<{ text: string; name: string } | null>(() => store.get('csv', null))
+  // Sammenslått oppmøteeksport. `files` = filene som er fylt på (nyeste sist).
+  const [csv, setCsv] = useState<{ text: string; name: string; files?: string[] } | null>(() => store.get('csv', null))
   // Hemmelig salt for lagoppsettet – skrives inn av brukeren, lagres bare i denne nettleseren
   const [salt, setSalt] = useState<string>(() => store.get('rosterSalt', ''))
   const [extraMatches, setExtraMatches] = useState<CsvFile[]>(() => store.get('matchCsvs', []))
@@ -145,7 +146,13 @@ export default function App() {
     const text = await file.text()
     try {
       parseExport(text)
-      setCsv({ text, name: file.name })
+      if (!csv) {
+        setCsv({ text, name: file.name, files: [file.name] })
+      } else {
+        // Fyll på: nye aktiviteter legges til, eksisterende oppdateres fra den nye fila
+        const files = [...(csv.files ?? [csv.name]), file.name]
+        setCsv({ text: mergeExports(csv.text, text), name: file.name, files })
+      }
     } catch (e) {
       alert(`Kunne ikke lese ${file.name}: ${(e as Error).message}`)
     }
@@ -162,7 +169,7 @@ export default function App() {
   if (!model || !ctx) {
     return (
       <Landing
-        csvName={csv?.name ?? null}
+        csvName={csv ? ((csv.files?.length ?? 1) > 1 ? `${csv.files!.length} filer` : csv.name) : null}
         salt={salt}
         wrongSalt={wrongSalt}
         loading={!!csv && !!salt && !roster}
@@ -187,11 +194,11 @@ export default function App() {
                 U12 <span className="text-sh-yellow">Oppmøte</span>
               </h1>
               <p className="truncate text-xs text-white/70">
-                {csv ? csv.name : 'Rubic-eksport'} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i stab · {model.activities.length} aktiviteter
+                {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i stab · {model.activities.length} aktiviteter
               </p>
             </div>
             <label className="ml-auto cursor-pointer rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-white/25">
-              Last inn CSV
+              Legg til CSV
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
             </label>
             <button onClick={clearData} className="hidden rounded-full px-2 py-1.5 text-xs text-white/70 hover:text-white sm:block" title="Fjern opplastede filer fra denne nettleseren">
@@ -328,7 +335,7 @@ function Landing(props: {
           <li className="rounded-xl bg-white/10 p-3">
             <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">1 · CSV fra Rubic</div>
             <label className="inline-block cursor-pointer rounded-full bg-sh-yellow px-4 py-2 text-sm font-bold text-navy shadow hover:brightness-105">
-              {csvName ? 'Bytt fil' : 'Velg fil'}
+              {csvName ? 'Legg til fil' : 'Velg fil'}
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
             </label>
             {csvName && <span className="ml-3 text-sm text-white/80">✓ {csvName}</span>}
