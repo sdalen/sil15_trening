@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #0b1f3a;
+  --color-sh-red: #c8102e;
+  --color-sh-blue: #1e50a0;
+  --color-sh-yellow: #f5be00;
+}
+
+html { -webkit-tap-highlight-color: transparent; }
+body { padding-bottom: env(safe-area-inset-bottom); }
+summary::-webkit-details-marker { display: none; }
