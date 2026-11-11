@@ -181,7 +181,7 @@ export default function App() {
       <header className="sticky top-0 z-20 bg-navy text-white shadow-lg">
         <div className="mx-auto max-w-6xl px-4 pt-3 pb-3">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Storhamar Yngres" className="h-11 w-auto drop-shadow" />
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="h-11 w-auto drop-shadow" />
             <div className="min-w-0">
               <h1 className="text-lg font-black leading-tight tracking-wide">
                 U12 <span className="text-sh-yellow">Oppmøte</span>
@@ -316,7 +316,7 @@ function Landing(props: {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-navy p-4 text-white">
       <div className="w-full max-w-md space-y-5 text-center">
-        <img src="/logo.png" alt="Storhamar Yngres" className="mx-auto h-20 w-auto drop-shadow" />
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="mx-auto h-20 w-auto drop-shadow" />
         <h1 className="text-2xl font-black tracking-wide">
           U12 <span className="text-sh-yellow">Oppmøte</span>
         </h1>
