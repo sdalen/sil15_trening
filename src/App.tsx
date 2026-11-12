@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { teams, type TeamId } from './data/sil15.js'
 import {
-  buildModel, colorTeam, fold, mergeExports, parseExport, inPeriod, matchesType, namesIn, personStats, PERIODS,
+  buildModel, colorTeam, fold, mergeExports, parseExport, inPeriod, isPeriod, matchesType, monthsWithData, namesIn, personStats, PERIODS,
   type ActType, type CsvFile, type Model, type Overrides, type Period, type Person,
 } from './lib/model'
 import { unlock, type RosterEntry, type SealedEntry } from './lib/rosterCrypto'
@@ -40,7 +40,10 @@ export default function App() {
     const t = store.get<string>('team', 'alle')
     return t === 'alle' || t === 'uten' || teams.some(x => x.id === t) ? (t as TeamFilter) : 'alle'
   })
-  const [period, setPeriod] = useState<Period>(() => store.get('period', 'host'))
+  const [period, setPeriod] = useState<Period>(() => {
+    const p = store.get<string>('period', 'host')
+    return isPeriod(p) ? p : 'host'
+  })
   const [actType, setActType] = useState<ActType>(() => {
     const t = store.get<string>('actType', 'alle')
     return t === 'kamp' || t === 'trening' ? t : 'alle'
@@ -257,7 +260,12 @@ export default function App() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm lg:ml-auto">
-            <Select value={period} onChange={v => setPeriod(v as Period)} options={PERIODS.map(p => [p.id, p.label])} />
+            <Select
+              value={period}
+              onChange={v => setPeriod(v as Period)}
+              options={PERIODS.map(p => [p.id, p.label])}
+              groups={[['Måned', monthsWithData(model.activities).map(m => [m.id, m.label])]]}
+            />
             <Select
               value={actType}
               onChange={v => setActType(v as ActType)}
@@ -395,11 +403,23 @@ function TeamButton({ active, onClick, cls, children }: { active: boolean; onCli
   )
 }
 
-function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: [string, string][] }) {
+function Select({ value, onChange, options, groups = [] }: {
+  value: string
+  onChange: (v: string) => void
+  options: [string, string][]
+  groups?: [string, [string, string][]][]
+}) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)} className="rounded-lg bg-white px-3 py-2 shadow-sm">
       {options.map(([v, l]) => (
         <option key={v} value={v}>{l}</option>
+      ))}
+      {groups.filter(([, opts]) => opts.length).map(([label, opts]) => (
+        <optgroup key={label} label={label}>
+          {opts.map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </optgroup>
       ))}
     </select>
   )

@@ -73,6 +73,13 @@ export interface CsvFile {
 
 const teamByName = new Map(teams.map(t => [t.name, t.id]))
 
+/** Aktiviteter som ble avlyst, men fortsatt ligger i Rubic-eksporten («åååå-mm-dd tt:mm») */
+const CANCELLED = new Set([
+  '2026-06-02 17:00',
+  '2026-06-09 17:00',
+  '2026-06-16 17:00',
+])
+
 interface ParsedExport {
   cols: { date: string; time: string }[]
   rows: { name: string; total: string; codes: Status[] }[]
@@ -253,7 +260,8 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
     }
   }
 
-  for (const a of activities) a.hasData = people.some(p => p.statuses[a.idx] !== null)
+  // Avlyste aktiviteter regnes som uten data – da holdes de utenfor all statistikk og alle lister
+  for (const a of activities) a.hasData = !CANCELLED.has(`${a.date} ${a.time}`) && people.some(p => p.statuses[a.idx] !== null)
 
   // Kamp: laget = flest innkalte spillere
   for (const a of activities.filter(x => x.kind === 'kamp')) {
@@ -323,7 +331,8 @@ export function average(values: (number | null)[]): number | null {
 
 // ---------- periode / filtre ----------
 
-export type Period = 'alle' | 'host' | 'var' | '30' | '60'
+/** Faste perioder, eller en måned på formen «åååå-mm» */
+export type Period = 'alle' | 'host' | 'var' | '30' | '60' | `${number}-${number}`
 export type ActType = 'alle' | 'kamp' | 'trening'
 
 export const PERIODS: { id: Period; label: string }[] = [
@@ -336,13 +345,28 @@ export const PERIODS: { id: Period; label: string }[] = [
 
 const SEASON_START = '2026-08-01'
 
+const MONTH = /^\d{4}-\d{2}$/
+
+/** Månedene som har aktiviteter med data, eldste først */
+export function monthsWithData(acts: Activity[]): { id: Period; label: string }[] {
+  const ids = [...new Set(acts.filter(a => a.hasData).map(a => a.date.slice(0, 7)))].sort()
+  return ids.map(id => {
+    const label = new Date(`${id}-01T12:00:00`).toLocaleDateString('nb-NO', { month: 'long', year: 'numeric' })
+    return { id: id as Period, label: label.charAt(0).toUpperCase() + label.slice(1) }
+  })
+}
+
+export const isPeriod = (v: string): v is Period => MONTH.test(v) || PERIODS.some(p => p.id === v)
+
 export function inPeriod(a: Activity, period: Period, now: Date) {
+  if (MONTH.test(period)) return a.date.startsWith(period)
   switch (period) {
     case 'alle': return true
     case 'host': return a.date >= SEASON_START
     case 'var': return a.date < SEASON_START
     case '30':
     case '60': return now.getTime() - a.at.getTime() <= Number(period) * 86400000
+    default: return true
   }
 }
 
