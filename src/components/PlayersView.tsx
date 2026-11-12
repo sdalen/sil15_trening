@@ -4,9 +4,9 @@ import { teams } from '../data/sil15.js'
 import { colorTeam, type Person, type Stats } from '../lib/model'
 import { shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { Card, Empty, Legend, NrBadge, PersonBadge, Pct, StatsBar, StatusDot } from './common'
+import { Card, Empty, Legend, NrBadge, PersonBadge, PctStats, StatsBar, StatusDot } from './common'
 
-type SortKey = 'name' | 'team' | 'nr' | 'ja' | 'nei' | 'ikkeSvart' | 'pct' | 'streak'
+type SortKey = 'name' | 'team' | 'nr' | 'ja' | 'nei' | 'godkjent' | 'ikkeSvart' | 'pct' | 'streak'
 const teamOrder = (p: Person) => (p.kind === 'stab' ? 50 : 0) + (colorTeam(p) ? teams.findIndex(t => t.id === colorTeam(p)) : 99)
 
 export default function PlayersView({ ctx }: { ctx: Ctx }) {
@@ -56,6 +56,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                 <Th k="team" className="hidden sm:table-cell">Lag</Th>
                 <Th k="ja" className="text-right">Ja</Th>
                 <Th k="nei" className="hidden text-right md:table-cell">Avslått</Th>
+                <Th k="godkjent" className="text-right">Godkjent</Th>
                 <Th k="ikkeSvart" className="hidden text-right md:table-cell">Ikke svart</Th>
                 <th className="hidden w-40 px-2 py-2 font-semibold lg:table-cell">Fordeling</th>
                 <th className="hidden px-2 py-2 font-semibold xl:table-cell">Siste {last.length}</th>
@@ -78,6 +79,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                   <td className="hidden px-2 py-2 sm:table-cell"><PersonBadge p={p} /></td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums text-emerald-700">{s.ja}</td>
                   <td className="hidden px-2 py-2 text-right tabular-nums text-rose-700 md:table-cell">{s.nei}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums text-sky-700" title="Avslag med godkjent grunn (fotball, syk …)">{s.godkjent || ''}</td>
                   <td className="hidden px-2 py-2 text-right tabular-nums text-amber-700 md:table-cell">{s.ikkeSvart}</td>
                   <td className="hidden px-2 py-2 lg:table-cell"><StatsBar s={s} /></td>
                   <td className="hidden px-2 py-2 xl:table-cell">
@@ -86,7 +88,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                     </div>
                   </td>
                   <td className="hidden px-2 py-2 text-right tabular-nums lg:table-cell">{s.streak || ''}</td>
-                  <td className="py-2 pr-4 pl-2 text-right"><Pct value={s.pct} /></td>
+                  <td className="py-2 pr-4 pl-2 text-right"><PctStats s={s} /></td>
                 </tr>
               ))}
             </tbody>

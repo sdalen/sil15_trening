@@ -4,7 +4,7 @@ import { teams, type TeamId } from '../data/sil15.js'
 import { average, colorTeam, countsInStats, countStatuses, type Activity, type Person } from '../lib/model'
 import { daysUntil, longDate, pctColor, pctText, shortDate, store, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { ActLabel, Card, Empty, Legend, NrBadge, PersonBadge, Pct, SplitBar, StatusChip, TeamBadge } from './common'
+import { ActLabel, Card, Empty, Legend, NrBadge, PersonBadge, Pct, PctStats, SplitBar, StatusChip, TeamBadge } from './common'
 
 export default function Overview({ ctx }: { ctx: Ctx }) {
   const { pastActs, stats, model, now } = ctx
@@ -293,7 +293,7 @@ function TeamRow({ teamId, ctx }: { teamId: TeamId; ctx: Ctx }) {
   )
 }
 
-type Ranked = { p: Person; s: { pct: number | null; ja: number; invited: number } }
+type Ranked = { p: Person; s: { pct: number | null; pctGodkjent: number | null; ja: number; invited: number; godkjent: number } }
 
 /** Lista fordelt på lag, med hvor stor andel av lagets spillere (med data) som er med */
 function TeamSplit({ items, all, ctx, bad }: { items: Ranked[]; all: Ranked[]; ctx: Ctx; bad: boolean }) {
@@ -339,7 +339,7 @@ function TeamSplit({ items, all, ctx, bad }: { items: Ranked[]; all: Ranked[]; c
   )
 }
 
-function RankList({ items, ctx, numbered }: { items: { p: Person; s: { pct: number | null; ja: number; invited: number } }[]; ctx: Ctx; numbered?: boolean }) {
+function RankList({ items, ctx, numbered }: { items: { p: Person; s: { pct: number | null; pctGodkjent: number | null; ja: number; invited: number; godkjent: number } }[]; ctx: Ctx; numbered?: boolean }) {
   if (!items.length) return <Empty>Ingen data i valgt periode.</Empty>
   return (
     <ul className="divide-y divide-slate-100">
@@ -352,10 +352,11 @@ function RankList({ items, ctx, numbered }: { items: { p: Person; s: { pct: numb
               <div className="truncate font-medium">{p.name}</div>
               <div className="text-xs text-slate-500">
                 {s.ja} av {s.invited} aktiviteter
+                {!!s.godkjent && <span className="ml-1 font-semibold text-sky-700">· {s.godkjent} godkjent fravær</span>}
               </div>
             </div>
             <PersonBadge p={p} />
-            <Pct value={s.pct} className="w-14 text-right" />
+            <PctStats s={s} className="w-24 text-right" />
           </button>
         </li>
       ))}

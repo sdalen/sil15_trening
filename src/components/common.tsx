@@ -46,6 +46,18 @@ export function Pct({ value, className = '' }: { value: number | null; className
   return <span className={`font-bold tabular-nums ${pctColor(value)} ${className}`}>{pctText(value)}</span>
 }
 
+/** Oppmøte («riktig» prosent), med prosent der godkjent fravær ikke teller i parentes */
+export function PctStats({ s, className = '' }: { s: Pick<Stats, 'pct' | 'pctGodkjent' | 'godkjent'>; className?: string }) {
+  return (
+    <span className={`whitespace-nowrap ${className}`}>
+      <Pct value={s.pct} />
+      {s.godkjent > 0 && (
+        <span className="ml-1 text-xs font-semibold text-sky-700 tabular-nums" title="Når godkjent fravær ikke telles som fravær">({pctText(s.pctGodkjent)})</span>
+      )}
+    </span>
+  )
+}
+
 /** Stablet stolpe ja / nei / ikke svart */
 export function SplitBar({ ja, nei, ikkeSvart, className = 'h-2' }: { ja: number; nei: number; ikkeSvart: number; className?: string }) {
   const total = ja + nei + ikkeSvart

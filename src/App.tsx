@@ -14,6 +14,7 @@ import ActivitiesView from './components/ActivitiesView'
 import MatrixView from './components/MatrixView'
 import PersonDrawer from './components/PersonDrawer'
 import KamperView from './components/KamperView'
+import FurnesView from './components/FurnesView'
 
 // Lagoppsettet ligger kryptert per person – låses opp med navnene i CSV-ene som lastes opp
 const SEALED = sealedRoster as SealedEntry[]
@@ -53,6 +54,8 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null)
   const [focusAct, setFocusAct] = useState<number | null>(null)
   const [now, setNow] = useState(() => new Date())
+  const [furnes, setFurnes] = useState<boolean>(() => store.get('furnes', false))
+  useEffect(() => store.set('furnes', furnes || undefined), [furnes])
 
   useEffect(() => store.set('csv', csv ?? undefined), [csv])
   useEffect(() => store.set('rosterSalt', salt || undefined), [salt])
@@ -169,9 +172,12 @@ export default function App() {
     setUnlocked(null)
   }
 
+  if (furnes) return <FurnesView onBack={() => setFurnes(false)} />
+
   if (!model || !ctx) {
     return (
       <Landing
+        onFurnes={() => setFurnes(true)}
         csvName={csv ? ((csv.files?.length ?? 1) > 1 ? `${csv.files!.length} filer` : csv.name) : null}
         salt={salt}
         wrongSalt={wrongSalt}
@@ -204,6 +210,9 @@ export default function App() {
               Legg til CSV
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
             </label>
+            <button onClick={() => setFurnes(true)} className="rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-emerald-600">
+              Furnes
+            </button>
             <button onClick={clearData} className="hidden rounded-full px-2 py-1.5 text-xs text-white/70 hover:text-white sm:block" title="Fjern opplastede filer fra denne nettleseren">
               Fjern data
             </button>
@@ -324,8 +333,9 @@ function Landing(props: {
   onSalt: (s: string) => void
   onUpload: (f: File) => void
   onClear: () => void
+  onFurnes: () => void
 }) {
-  const { csvName, salt, wrongSalt, loading, error, onSalt, onUpload, onClear } = props
+  const { csvName, salt, wrongSalt, loading, error, onSalt, onUpload, onClear, onFurnes } = props
   const [draft, setDraft] = useState('')
   const needSalt = !salt || wrongSalt
   return (
@@ -382,6 +392,9 @@ function Landing(props: {
             Filen kunne ikke leses ({error}).
           </div>
         )}
+        <button onClick={onFurnes} className="block w-full rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold hover:bg-emerald-600">
+          Furnes fotball →
+        </button>
         {(csvName || salt) && (
           <button onClick={onClear} className="text-xs text-white/60 underline hover:text-white">
             Fjern fil og salt fra denne nettleseren

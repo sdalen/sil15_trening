@@ -2,7 +2,7 @@ import { teams } from '../data/sil15.js'
 import { STATUS, THEME, tinyDate } from '../lib/ui'
 import { colorTeam, type Person } from '../lib/model'
 import type { Ctx } from '../ctx'
-import { Card, Empty, Legend, Pct } from './common'
+import { Card, Empty, Legend, PctStats } from './common'
 
 const order = (p: Person) => (p.kind === 'stab' ? 50 : 0) + (colorTeam(p) ? teams.findIndex(t => t.id === colorTeam(p)) : 99)
 
@@ -55,7 +55,7 @@ export default function MatrixView({ ctx }: { ctx: Ctx }) {
                   </button>
                 </td>
                 <td className="border-t border-slate-100 px-2 text-right group-hover:bg-slate-50">
-                  <Pct value={ctx.stats.get(p.id)!.pct} />
+                  <PctStats s={ctx.stats.get(p.id)!} />
                 </td>
                 {acts.map(a => {
                   const s = p.statuses[a.idx]

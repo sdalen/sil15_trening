@@ -55,6 +55,8 @@ export interface Person {
   statuses: Status[]
   /** Manuelle rettelser: aktivitetsindeks -> forklaring */
   corrected: Record<number, string>
+  /** Grunn til avslag fra Rubic: aktivitetsindeks -> tekst */
+  reasons: Record<number, string>
   rubicTotal: string
 }
 
@@ -81,8 +83,10 @@ const CANCELLED = new Set([
 ])
 
 interface ParsedExport {
-  cols: { date: string; time: string }[]
-  rows: { name: string; total: string; codes: Status[] }[]
+  /** label = tekst etter klokkeslettet i overskriften, f.eks. kategorien fra local/rubic-csv.mjs («Cup») */
+  cols: { date: string; time: string; label: string }[]
+  /** notes = kommentar per aktivitet (f.eks. grunn til avslag), fra celler på formen «5 | Hockeykamp» */
+  rows: { name: string; total: string; codes: Status[]; notes: string[] }[]
 }
 
 /** Leser en Rubic-oppmøteeksport: Navn, Totalt, og én kolonne per aktivitet «dd.mm.åååå (tt:mm)». */
@@ -95,11 +99,11 @@ export function parseExport(text: string): ParsedExport {
   const colIdx: number[] = []
   const cols: ParsedExport['cols'] = []
   header.forEach((h, i) => {
-    const m = h.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})\s*\((\d{1,2}):(\d{2})\)/)
+    const m = h.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})\s*\((\d{1,2}):(\d{2})\)\s*(.*)/)
     if (!m) return
-    const [, d, mo, y, hh, mm] = m
+    const [, d, mo, y, hh, mm, label] = m
     colIdx.push(i)
-    cols.push({ date: `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`, time: `${hh.padStart(2, '0')}:${mm}` })
+    cols.push({ date: `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`, time: `${hh.padStart(2, '0')}:${mm}`, label: label.trim() })
   })
   if (!cols.length) throw new Error('Fant ingen datokolonner. Er dette en oppmøteeksport fra Rubic?')
   return {
@@ -108,7 +112,8 @@ export function parseExport(text: string): ParsedExport {
       .map(r => ({
         name: norm(r[nameCol] ?? ''),
         total: totalCol >= 0 ? (r[totalCol] ?? '') : '',
-        codes: colIdx.map(c => CODES[(r[c] ?? '').trim()] ?? null),
+        codes: colIdx.map(c => CODES[(r[c] ?? '').split('|')[0].trim()] ?? null),
+        notes: colIdx.map(c => (r[c] ?? '').split('|').slice(1).join('|').trim()),
       }))
       // Rader med bare medlemsnummer (slettede/ukjente medlemmer) tas ikke med
       .filter(r => r.name && !/^\d+$/.test(r.name)),
@@ -145,19 +150,22 @@ export function mergeExports(oldText: string, newText: string): string {
   const cols = order.map(k => all.get(k)!)
   const colPos = new Map(order.map((k, i) => [k, i]))
 
-  const people = new Map<string, { name: string; total: string; codes: Status[] }>()
+  const people = new Map<string, { name: string; total: string; codes: Status[]; notes: string[] }>()
   for (const [x, xKeys] of [[a, aKeys], [b, bKeys]] as const) {
     for (const r of x.rows) {
       const k = fold(r.name)
-      const p = people.get(k) ?? { name: r.name, total: '', codes: new Array<Status>(cols.length).fill(null) }
+      const p = people.get(k) ?? { name: r.name, total: '', codes: new Array<Status>(cols.length).fill(null), notes: new Array<string>(cols.length).fill('') }
       if (r.total) p.total = r.total
-      xKeys.forEach((k, i) => (p.codes[colPos.get(k)!] = r.codes[i]))
+      xKeys.forEach((k, i) => {
+        p.codes[colPos.get(k)!] = r.codes[i]
+        p.notes[colPos.get(k)!] = r.notes[i]
+      })
       people.set(k, p)
     }
   }
   const cell = (v: string) => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
   const header = ['Navn', 'Totalt', ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})`)]
-  const lines = [header, ...[...people.values()].map(p => [p.name, p.total, ...p.codes.map(s => (s ? UNCODE[s] : ''))])]
+  const lines = [header, ...[...people.values()].map(p => [p.name, p.total, ...p.codes.map((s, i) => (s ? UNCODE[s] + (p.notes[i] ? ` | ${p.notes[i]}` : '') : ''))])]
   return lines.map(l => l.map(cell).join(',')).join('\n') + '\n'
 }
 
@@ -230,6 +238,7 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
       overridden: ov !== undefined,
       statuses: new Array<Status>(n).fill(null),
       corrected: {},
+      reasons: {},
       rubicTotal: total,
     }
     byId.set(id, p)
@@ -239,11 +248,15 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
   for (const r of base.rows) {
     const p = getPerson(r.name, r.total)
     r.codes.forEach((s, i) => (p.statuses[i] = s))
+    r.notes.forEach((t, i) => t && (p.reasons[i] = t))
   }
   for (const m of matchCols) {
     for (const r of matches[m.file].x.rows) {
       const s = r.codes[m.col]
-      if (s) getPerson(r.name, '').statuses[m.idx] = s
+      if (!s) continue
+      const p = getPerson(r.name, '')
+      p.statuses[m.idx] = s
+      if (r.notes[m.col]) p.reasons[m.idx] = r.notes[m.col]
     }
   }
   const people = [...byId.values()]
@@ -286,9 +299,17 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
 
 // ---------- statistikk ----------
 
+/** Avslag med godkjent grunn (annen idrett eller sykdom) – teller ikke som fravær */
+export const APPROVED_REASON = /fotball|futsal|hockey|syk/i
+export const isApproved = (p: Person, idx: number) => p.statuses[idx] === 'nei' && APPROVED_REASON.test(p.reasons[idx] ?? '')
+
 export interface Stats {
   ja: number
   nei: number
+  /** Avslag med godkjent grunn – med i invited (totalen) og i pct, men holdes utenfor pctGodkjent */
+  godkjent: number
+  /** Oppmøte når godkjent fravær ikke telles som fravær */
+  pctGodkjent: number | null
   ikkeSvart: number
   invited: number
   pct: number | null
@@ -296,23 +317,25 @@ export interface Stats {
 }
 
 export function personStats(p: Person, acts: Activity[], noAnswerIsAbsent: boolean): Stats {
-  let ja = 0, nei = 0, ikkeSvart = 0
+  let ja = 0, nei = 0, ikkeSvart = 0, godkjent = 0
   for (const a of acts) {
     const s = p.statuses[a.idx]
     if (s === 'ja') ja++
+    else if (isApproved(p, a.idx)) godkjent++
     else if (s === 'nei') nei++
     else if (s === 'ikke-svart') ikkeSvart++
   }
-  const denom = noAnswerIsAbsent ? ja + nei + ikkeSvart : ja + nei
+  // «Riktig» prosent: godkjent fravær er også fravær. pctGodkjent: godkjent fravær holdes utenfor.
+  const denom = (noAnswerIsAbsent ? ja + nei + ikkeSvart : ja + nei) + godkjent
   // Sammenhengende «ja» bakover fra siste aktivitet
   let streak = 0
   for (let i = acts.length - 1; i >= 0; i--) {
     const s = p.statuses[acts[i].idx]
-    if (s === null) continue
+    if (s === null || isApproved(p, acts[i].idx)) continue
     if (s !== 'ja') break
     streak++
   }
-  return { ja, nei, ikkeSvart, invited: ja + nei + ikkeSvart, pct: denom ? ja / denom : null, streak }
+  return { ja, nei, godkjent, ikkeSvart, invited: ja + nei + ikkeSvart + godkjent, pct: denom ? ja / denom : null, pctGodkjent: denom - godkjent ? ja / (denom - godkjent) : null, streak }
 }
 
 export function countStatuses(people: Person[], a: Activity) {
@@ -348,7 +371,7 @@ const SEASON_START = '2026-08-01'
 const MONTH = /^\d{4}-\d{2}$/
 
 /** Månedene som har aktiviteter med data, eldste først */
-export function monthsWithData(acts: Activity[]): { id: Period; label: string }[] {
+export function monthsWithData(acts: Pick<Activity, 'date' | 'hasData'>[]): { id: Period; label: string }[] {
   const ids = [...new Set(acts.filter(a => a.hasData).map(a => a.date.slice(0, 7)))].sort()
   return ids.map(id => {
     const label = new Date(`${id}-01T12:00:00`).toLocaleDateString('nb-NO', { month: 'long', year: 'numeric' })
@@ -358,7 +381,7 @@ export function monthsWithData(acts: Activity[]): { id: Period; label: string }[
 
 export const isPeriod = (v: string): v is Period => MONTH.test(v) || PERIODS.some(p => p.id === v)
 
-export function inPeriod(a: Activity, period: Period, now: Date) {
+export function inPeriod(a: Pick<Activity, 'date' | 'at'>, period: Period, now: Date) {
   if (MONTH.test(period)) return a.date.startsWith(period)
   switch (period) {
     case 'alle': return true

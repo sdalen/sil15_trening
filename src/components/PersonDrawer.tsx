@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { teams, tournaments, type TeamId } from '../data/sil15.js'
-import { colorTeam, personStats, type Activity, type Person } from '../lib/model'
+import { colorTeam, isApproved, personStats, type Activity, type Person } from '../lib/model'
 import { longDate, monthLabel, pctText, shortDate, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { ActLabel, Legend, NrBadge, Pct, SplitBar, StatusChip } from './common'
+import { ActLabel, Legend, NrBadge, Pct, PctStats, SplitBar, StatusChip } from './common'
 
 interface Props {
   ctx: Ctx
@@ -79,8 +79,8 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
           </label>
 
           <div className="grid grid-cols-3 gap-2">
-            <Tile label="Oppmøte" value={<Pct value={s.pct} />} sub="valgt periode" />
-            <Tile label="Ja / avslått / ?" value={<span className="text-xl">{s.ja}/{s.nei}/{s.ikkeSvart}</span>} sub={`av ${s.invited}`} />
+            <Tile label="Oppmøte" value={<PctStats s={s} />} sub={s.godkjent ? 'valgt periode (godkjent fravær holdt utenfor)' : 'valgt periode'} />
+            <Tile label="Ja / avslått / ?" value={<span className="text-xl">{s.ja}/{s.nei}/{s.ikkeSvart}</span>} sub={`av ${s.invited}${s.godkjent ? ` · ${s.godkjent} godkjent fravær` : ''}`} />
             <Tile label="På rad" value={s.streak} sub="ja siste aktiviteter" />
           </div>
           <div className="rounded-xl bg-white p-3 text-xs text-slate-500 shadow-sm">
@@ -147,7 +147,16 @@ function ActRow({ a, p }: { a: Activity; p: Person }) {
         <ActLabel a={a} />
       </span>
       {p.corrected[a.idx] && <span title={p.corrected[a.idx]} className="cursor-help text-xs text-slate-400">✎</span>}
-      <StatusChip s={p.statuses[a.idx]} />
+      {p.reasons[a.idx] && (
+        <span className={`max-w-32 truncate text-xs ${isApproved(p, a.idx) ? 'font-semibold text-sky-700' : 'text-slate-500'}`} title={p.reasons[a.idx]}>
+          {p.reasons[a.idx]}
+        </span>
+      )}
+      {isApproved(p, a.idx) ? (
+        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">Godkjent</span>
+      ) : (
+        <StatusChip s={p.statuses[a.idx]} />
+      )}
     </li>
   )
 }
