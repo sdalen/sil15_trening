@@ -16,6 +16,7 @@ import PersonDrawer from './components/PersonDrawer'
 import KamperView from './components/KamperView'
 import FurnesView from './components/FurnesView'
 import StatsView from './components/StatsView'
+import InfoView from './components/InfoView'
 
 // Lagoppsettet ligger kryptert per person – låses opp med navnene i CSV-ene som lastes opp
 const SEALED = sealedRoster as SealedEntry[]
@@ -57,6 +58,9 @@ export default function App() {
   const [focusAct, setFocusAct] = useState<number | null>(null)
   const [now, setNow] = useState(() => new Date())
   const [furnes, setFurnes] = useState<boolean>(() => store.get('furnes', false))
+  const [showInfo, setShowInfo] = useState(false)
+  // Lagret fane fra før Info ble flyttet til ikon
+  useEffect(() => { if (!TABS.some(t => t.id === tab)) setTab('oversikt') }, [tab])
   useEffect(() => store.set('furnes', furnes || undefined), [furnes])
 
   useEffect(() => store.set('csv', csv ?? undefined), [csv])
@@ -174,11 +178,16 @@ export default function App() {
     setUnlocked(null)
   }
 
+  const info = showInfo && <InfoModal onClose={() => setShowInfo(false)} />
+
   if (furnes) return <FurnesView onBack={() => setFurnes(false)} />
 
   if (!model || !ctx) {
     return (
+      <>
+      {info}
       <Landing
+        onInfo={() => setShowInfo(true)}
         onFurnes={() => setFurnes(true)}
         csvName={csv ? ((csv.files?.length ?? 1) > 1 ? `${csv.files!.length} filer` : csv.name) : null}
         salt={salt}
@@ -189,6 +198,7 @@ export default function App() {
         onUpload={onUpload}
         onClear={clearData}
       />
+      </>
     )
   }
 
@@ -212,6 +222,7 @@ export default function App() {
               Legg til CSV
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
             </label>
+            <InfoButton onClick={() => setShowInfo(true)} />
             <button onClick={() => setFurnes(true)} className="rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-emerald-600">
               Furnes
             </button>
@@ -308,6 +319,7 @@ export default function App() {
         </footer>
       </main>
 
+      {info}
       {person && (
         <PersonDrawer
           ctx={ctx}
@@ -337,12 +349,14 @@ function Landing(props: {
   onUpload: (f: File) => void
   onClear: () => void
   onFurnes: () => void
+  onInfo: () => void
 }) {
-  const { csvName, salt, wrongSalt, loading, error, onSalt, onUpload, onClear, onFurnes } = props
+  const { csvName, salt, wrongSalt, loading, error, onSalt, onUpload, onClear, onFurnes, onInfo } = props
   const [draft, setDraft] = useState('')
   const needSalt = !salt || wrongSalt
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-navy p-4 text-white">
+    <div className="relative flex min-h-dvh items-center justify-center bg-navy p-4 text-white">
+      <div className="absolute top-4 right-4"><InfoButton onClick={onInfo} /></div>
       <div className="w-full max-w-md space-y-5 text-center">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="mx-auto h-20 w-auto drop-shadow" />
         <h1 className="text-2xl font-black tracking-wide">
@@ -403,6 +417,39 @@ function Landing(props: {
             Fjern fil og salt fra denne nettleseren
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+function InfoButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Om appen"
+      title="Om appen – hvordan tallene regnes ut"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 font-serif text-base font-bold italic hover:bg-white/25"
+    >
+      i
+    </button>
+  )
+}
+
+function InfoModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4" role="dialog" aria-modal="true" aria-label="Om appen">
+      <div className="fixed inset-0 bg-navy/50 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative w-full max-w-5xl rounded-2xl bg-slate-100 shadow-2xl">
+        <div className="flex items-center gap-3 rounded-t-2xl bg-navy px-4 py-3 text-white">
+          <h2 className="text-lg font-bold">Om appen</h2>
+          <button onClick={onClose} className="ml-auto rounded-full bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25" aria-label="Lukk">✕</button>
+        </div>
+        <div className="p-4"><InfoView /></div>
       </div>
     </div>
   )

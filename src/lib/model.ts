@@ -302,15 +302,19 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
 /** Avslag med godkjent grunn (annen idrett eller sykdom) – brukes av Furnes-siden */
 export const APPROVED_REASON = /fotball|futsal|hockey|syk/i
 
-/** Fra denne datoen er det hockeysesong – fotball/futsal er ikke lenger godkjent grunn for hockeyfravær */
-export const HOCKEY_SEASON_START = '2026-11-01'
+/**
+ * Hockeysesongen starter (siste seriekamp i fotball for årgangen var 29.09.2026).
+ * Fra og med denne datoen er fotball/futsal ikke lenger godkjent grunn for hockeyfravær.
+ */
+export const HOCKEY_SEASON_START = '2026-10-01'
 
-/** Godkjent grunn for avslag på en hockeyaktivitet: syk alltid, fotball/futsal bare før hockeysesongen */
-export function approvedReason(reason: string, date: string) {
+/** Godkjent grunn for avslag på en hockeyaktivitet: syk alltid, jobb for støtteapparat, fotball/futsal bare før hockeysesongen */
+export function approvedReason(reason: string, date: string, staff = false) {
   if (/syk/i.test(reason)) return true
+  if (staff && /jobb/i.test(reason)) return true
   return /fotball|futsal/i.test(reason) && date < HOCKEY_SEASON_START
 }
-export const isApproved = (p: Person, a: Pick<Activity, 'idx' | 'date'>) => p.statuses[a.idx] === 'nei' && approvedReason(p.reasons[a.idx] ?? '', a.date)
+export const isApproved = (p: Person, a: Pick<Activity, 'idx' | 'date'>) => p.statuses[a.idx] === 'nei' && approvedReason(p.reasons[a.idx] ?? '', a.date, p.kind !== 'spiller')
 
 export interface Stats {
   ja: number
