@@ -4,7 +4,7 @@ import { teams, tournaments, type TeamId } from '../data/sil15.js'
 import { colorTeam, isApproved, personStats, type Activity, type Person } from '../lib/model'
 import { longDate, monthLabel, pctText, shortDate, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { ActLabel, Legend, NrBadge, Pct, PctStats, SplitBar, StatusChip } from './common'
+import { ActLabel, Legend, NrBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip } from './common'
 
 interface Props {
   ctx: Ctx
@@ -21,11 +21,14 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
   }, [onClose])
 
   const s = ctx.stats.get(p.id)!
-  const allPast = ctx.model.activities.filter(a => a.hasData && a.at < ctx.now)
+  const allPast = ctx.model.activities.filter(a => a.hasData && a.at < ctx.now && a.kind !== 'ekstra')
   const sAll = personStats(p, allPast, ctx.noAnswerIsAbsent)
   const sTrening = personStats(p, allPast.filter(x => x.kind === 'trening'), ctx.noAnswerIsAbsent)
   const sKamp = personStats(p, allPast.filter(x => x.kind === 'kamp'), ctx.noAnswerIsAbsent)
-  const mine = ctx.periodActs.filter(a => p.statuses[a.idx] !== null)
+  // Historikk: valgte aktiviteter + frivillige ekstratreninger (Early Bird), i tidsrekkefølge
+  const mine = [...new Map([...ctx.periodActs, ...ctx.periodExtra].map(a => [a.idx, a])).values()]
+    .filter(a => p.statuses[a.idx] !== null)
+    .sort((x, y) => x.at.getTime() - y.at.getTime() || x.idx - y.idx)
   const upcoming = ctx.model.activities.filter(a => a.at >= ctx.now && p.statuses[a.idx] !== null)
 
   // Per måned (passerte, i valgt periode)
@@ -84,7 +87,8 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
             <Tile label="På rad" value={s.streak} sub="ja siste aktiviteter" />
           </div>
           <div className="rounded-xl bg-white p-3 text-xs text-slate-500 shadow-sm">
-            Hele perioden: <b className="text-slate-700">{pctText(sAll.pct)}</b> ({sAll.ja} av {sAll.invited}). Rubic «Totalt»: {p.rubicTotal || '–'}
+            Hele perioden: <b className="text-slate-700">{pctText(sAll.pct)}</b> ({sAll.ja} av {sAll.invited}).
+            <ExtraNote s={ctx.extraStats.get(p.id)} label={`${ctx.extraLabel} i valgt periode`} /> Rubic «Totalt»: {p.rubicTotal || '–'}
             <div className="mt-1">
               Treninger: <b className="text-slate-700">{pctText(sTrening.pct)}</b> ({sTrening.ja} av {sTrening.invited}) · Kamper:{' '}
               <b className="text-slate-700">{sKamp.invited ? `${sKamp.ja} av ${sKamp.invited}` : 'ikke innkalt ennå'}</b>

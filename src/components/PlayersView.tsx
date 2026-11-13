@@ -77,7 +77,14 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                     <div className="text-xs text-slate-500 sm:hidden"><PersonBadge p={p} small /></div>
                   </td>
                   <td className="hidden px-2 py-2 sm:table-cell"><PersonBadge p={p} /></td>
-                  <td className="px-2 py-2 text-right font-semibold tabular-nums text-emerald-700">{s.ja}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums text-emerald-700">
+                    {s.ja}
+                    {!!ctx.extraStats.get(p.id)?.invited && (
+                      <div className="text-[11px] font-normal text-violet-700" title={`Frivillig – ${ctx.extraLabel}, telles ikke i oppmøte`}>
+                        +{ctx.extraStats.get(p.id)!.ja}/{ctx.extraStats.get(p.id)!.invited} {ctx.extraLabel}
+                      </div>
+                    )}
+                  </td>
                   <td className="hidden px-2 py-2 text-right tabular-nums text-rose-700 md:table-cell">{s.nei}</td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums text-sky-700" title="Avslag med godkjent grunn (fotball, syk …)">{s.godkjent || ''}</td>
                   <td className="hidden px-2 py-2 text-right tabular-nums text-amber-700 md:table-cell">{s.ikkeSvart}</td>

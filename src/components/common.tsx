@@ -58,6 +58,12 @@ export function PctStats({ s, className = '' }: { s: Pick<Stats, 'pct' | 'pctGod
   )
 }
 
+/** «(z av æ Early Bird)» – frivillige ekstratreninger, telles ikke i oppmøte */
+export function ExtraNote({ s, label }: { s: Stats | undefined; label: string }) {
+  if (!s?.invited) return null
+  return <span className="ml-1 text-violet-700">({s.ja} av {s.invited} {label})</span>
+}
+
 /** Stablet stolpe ja / nei / ikke svart */
 export function SplitBar({ ja, nei, ikkeSvart, className = 'h-2' }: { ja: number; nei: number; ikkeSvart: number; className?: string }) {
   const total = ja + nei + ikkeSvart
@@ -107,6 +113,7 @@ export function PersonBadge({ p, small }: { p: Person; small?: boolean }) {
 
 /** Kort beskrivelse av en aktivitet: kamp (med lag og sted) eller trening */
 export function ActLabel({ a }: { a: Activity }) {
+  if (a.kind === 'ekstra') return <span className="font-semibold text-violet-700">☀️ {a.title ?? 'Ekstratrening'} (frivillig)</span>
   if (a.kind === 'kamp')
     return (
       <span className="inline-flex flex-wrap items-center gap-1">

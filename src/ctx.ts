@@ -19,6 +19,12 @@ export interface Ctx {
   /** Personer i valgt gruppe og lag som matcher søket */
   visible: Person[]
   stats: Map<string, Stats>
+  /** Frivillige ekstratreninger (Early Bird) i valgt periode – telles for seg, ikke i oppmøte */
+  extraStats: Map<string, Stats>
+  /** Ekstratreninger med data i valgt periode (inkl. kommende) – for historikk */
+  periodExtra: Activity[]
+  /** Navn på ekstratreningene, f.eks. «Early Bird» */
+  extraLabel: string
   team: TeamFilter
   query: string
   noAnswerIsAbsent: boolean

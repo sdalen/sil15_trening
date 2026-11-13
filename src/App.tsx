@@ -50,7 +50,7 @@ export default function App() {
   })
   const [actType, setActType] = useState<ActType>(() => {
     const t = store.get<string>('actType', 'alle')
-    return t === 'kamp' || t === 'trening' ? t : 'alle'
+    return t === 'kamp' || t === 'trening' || t === 'ekstra' ? t : 'alle'
   })
   const [noAnswerIsAbsent, setNoAnswerIsAbsent] = useState<boolean>(() => store.get('noAnswerIsAbsent', true))
   const [query, setQuery] = useState('')
@@ -127,8 +127,12 @@ export default function App() {
     const population = groupPeople.filter(inTeam)
     const visible = population.filter(matchesQuery)
     const stats = new Map(model.people.map(p => [p.id, personStats(p, pastActs, noAnswerIsAbsent)]))
+    const periodExtra = model.activities.filter(a => a.kind === 'ekstra' && a.hasData && inPeriod(a, period, now))
+    const extraActs = periodExtra.filter(a => a.at < now)
+    const extraStats = new Map(model.people.map(p => [p.id, personStats(p, extraActs, noAnswerIsAbsent)]))
+    const extraLabel = extraActs.find(a => a.title)?.title ?? 'ekstratreninger'
     return {
-      model, now, periodActs, pastActs, group, groupPeople, population, visible, stats,
+      model, now, periodActs, pastActs, group, groupPeople, population, visible, stats, extraStats, extraLabel, periodExtra,
       team: teamFilter, query: q, noAnswerIsAbsent, openPerson: setSelected,
       openActivity: (idx: number) => {
         setFocusAct(idx)
@@ -291,7 +295,7 @@ export default function App() {
             <Select
               value={actType}
               onChange={v => setActType(v as ActType)}
-              options={[['alle', 'Kamper og treninger'], ['trening', 'Kun treninger'], ['kamp', 'Kun kamper']]}
+              options={[['alle', 'Kamper og treninger'], ['trening', 'Kun treninger'], ['kamp', 'Kun kamper'], ['ekstra', 'Kun ekstratreninger (Early Bird)']]}
             />
             <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 shadow-sm" title="Hvis av: oppmøte % = ja / (ja + nei)">
               <input type="checkbox" checked={noAnswerIsAbsent} onChange={e => setNoAnswerIsAbsent(e.target.checked)} className="accent-navy" />

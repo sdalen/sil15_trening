@@ -4,7 +4,7 @@ import { teams, type TeamId } from '../data/sil15.js'
 import { average, colorTeam, countsInStats, countStatuses, type Activity, type Person } from '../lib/model'
 import { daysUntil, longDate, pctColor, pctText, shortDate, store, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { ActLabel, Card, Empty, Legend, NrBadge, PersonBadge, Pct, PctStats, SplitBar, StatusChip, TeamBadge } from './common'
+import { ActLabel, Card, Empty, Legend, NrBadge, PersonBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip, TeamBadge } from './common'
 
 export default function Overview({ ctx }: { ctx: Ctx }) {
   const { pastActs, stats, model, now } = ctx
@@ -352,6 +352,7 @@ function RankList({ items, ctx, numbered }: { items: { p: Person; s: { pct: numb
               <div className="truncate font-medium">{p.name}</div>
               <div className="text-xs text-slate-500">
                 {s.ja} av {s.invited} aktiviteter
+                <ExtraNote s={ctx.extraStats.get(p.id)} label={ctx.extraLabel} />
                 {!!s.godkjent && <span className="ml-1 font-semibold text-sky-700">· {s.godkjent} godkjent fravær</span>}
               </div>
             </div>

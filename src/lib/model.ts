@@ -15,7 +15,8 @@ const CODES: Record<string, Exclude<Status, null>> = { '3': 'ja', '5': 'nei', '1
 
 export type Kind = 'spiller' | 'stab' | 'annen'
 export type Overrides = Record<string, TeamId | 'none'>
-export type ActKind = 'trening' | 'kamp'
+/** ekstra = frivillig ekstratilbud (f.eks. Early Bird) – vises, men telles ikke i oppmøte */
+export type ActKind = 'trening' | 'kamp' | 'ekstra'
 
 export interface Activity {
   idx: number
@@ -28,6 +29,8 @@ export interface Activity {
   team: TeamId | null
   /** Filen aktiviteten kom fra */
   source: string
+  /** Tittel fra uttrekket (kategori · tittel bak klokkeslettet), f.eks. «Early Bird» */
+  title?: string
   tournament?: Tournament
   /** Storhamar-lag som spiller turnering denne datoen */
   playingTeams: TeamId[]
@@ -143,9 +146,10 @@ export function mergeExports(oldText: string, newText: string): string {
   }
   const aKeys = keysOf(a.cols)
   const bKeys = keysOf(b.cols)
-  const all = new Map<string, { date: string; time: string }>()
+  const all = new Map<string, { date: string; time: string; label: string }>()
   a.cols.forEach((c, i) => all.set(aKeys[i], c))
-  b.cols.forEach((c, i) => all.set(bKeys[i], c))
+  // Vanlig Rubic-eksport har ingen kategori – behold kategori/tittel fra før
+  b.cols.forEach((c, i) => all.set(bKeys[i], { ...c, label: c.label || all.get(bKeys[i])?.label || '' }))
   const order = [...all.keys()].sort()
   const cols = order.map(k => all.get(k)!)
   const colPos = new Map(order.map((k, i) => [k, i]))
@@ -157,14 +161,17 @@ export function mergeExports(oldText: string, newText: string): string {
       const p = people.get(k) ?? { name: r.name, total: '', codes: new Array<Status>(cols.length).fill(null), notes: new Array<string>(cols.length).fill('') }
       if (r.total) p.total = r.total
       xKeys.forEach((k, i) => {
-        p.codes[colPos.get(k)!] = r.codes[i]
-        p.notes[colPos.get(k)!] = r.notes[i]
+        const pos = colPos.get(k)!
+        // Vanlig Rubic-eksport har ingen grunner – behold grunnen fra før så lenge statusen er den samme
+        const keepNote = !r.notes[i] && p.codes[pos] === r.codes[i]
+        p.codes[pos] = r.codes[i]
+        if (!keepNote) p.notes[pos] = r.notes[i]
       })
       people.set(k, p)
     }
   }
   const cell = (v: string) => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
-  const header = ['Navn', 'Totalt', ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})`)]
+  const header = ['Navn', 'Totalt', ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})${c.label ? ` ${c.label}` : ''}`)]
   const lines = [header, ...[...people.values()].map(p => [p.name, p.total, ...p.codes.map((s, i) => (s ? UNCODE[s] + (p.notes[i] ? ` | ${p.notes[i]}` : '') : ''))])]
   return lines.map(l => l.map(cell).join(',')).join('\n') + '\n'
 }
@@ -195,7 +202,12 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
   const base = parseExport(main.text)
   const matches = matchFiles.map(f => ({ f, x: parseExport(f.text) }))
 
-  const activities: Activity[] = base.cols.map((c, i) => makeActivity(i, c.date, c.time, 'trening', main.name))
+  const activities: Activity[] = base.cols.map((c, i) => {
+    const [cat, ...rest] = c.label.split(' · ')
+    const a = makeActivity(i, c.date, c.time, cat === 'Ekstra' ? 'ekstra' : 'trening', main.name)
+    if (rest.length) a.title = rest.join(' · ')
+    return a
+  })
   const matchCols: { file: number; col: number; idx: number }[] = []
   matches.forEach(({ f, x }, file) =>
     x.cols.forEach((c, col) => {
@@ -259,8 +271,11 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
       if (r.notes[m.col]) p.reasons[m.idx] = r.notes[m.col]
     }
   }
-  // Personer som har sluttet (markert i lagoppsettet) vises ikke noe sted
-  const people = [...byId.values()].filter(p => !roster.get(p.id)?.removed)
+  // Personer som har sluttet (markert i lagoppsettet) vises ikke noe sted.
+  // Personer som bare finnes på ekstratreninger (andre årganger på Early Bird) tas heller ikke med.
+  const people = [...byId.values()].filter(
+    p => !roster.get(p.id)?.removed && activities.some(a => a.kind !== 'ekstra' && p.statuses[a.idx] !== null),
+  )
 
   // Manuelle rettelser (ligger kryptert i lagoppsettet) – kun treninger som står som «ikke svart»
   for (const [k, e] of roster) for (const c of e.corrections ?? []) {
@@ -370,7 +385,7 @@ export function average(values: (number | null)[]): number | null {
 
 /** Faste perioder, eller en måned på formen «åååå-mm» */
 export type Period = 'alle' | 'host' | 'var' | '30' | '60' | `${number}-${number}`
-export type ActType = 'alle' | 'kamp' | 'trening'
+export type ActType = 'alle' | 'kamp' | 'trening' | 'ekstra'
 
 export const PERIODS: { id: Period; label: string }[] = [
   { id: 'host', label: 'Høst 2026 (fra aug.)' },
@@ -408,7 +423,8 @@ export function inPeriod(a: Pick<Activity, 'date' | 'at'>, period: Period, now: 
 }
 
 export function matchesType(a: Activity, t: ActType) {
-  return t === 'alle' || a.kind === t
+  // «Alle» = kamper og treninger – ekstratreninger bare når de velges eksplisitt
+  return t === 'alle' ? a.kind !== 'ekstra' : a.kind === t
 }
 
 /** Laget en person vises med (spillerlag, eller laget en stabsperson er knyttet til) */
