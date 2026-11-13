@@ -59,3 +59,6 @@ export const store = {
     }
   },
 }
+
+/** Minutter som timer: «12,5 t» */
+export const hoursText = (min: number) => `${(min / 60).toLocaleString('nb-NO', { maximumFractionDigits: 1 })} t`

@@ -34,6 +34,12 @@ export interface Activity {
   tournament?: Tournament
   /** Storhamar-lag som spiller turnering denne datoen */
   playingTeams: TeamId[]
+  /** Varighet i minutter (fra local/rubic-csv.mjs, «[60 min]» i overskriften) */
+  minutes?: number
+  /** Lenke til aktiviteten i Rubic (fra «[rubic:org/id]» i overskriften) */
+  rubicUrl?: string
+  /** Sted fra Rubic (fra «[sted:CC Amfi]» i overskriften) */
+  place?: string
   hasData: boolean
   /** Tom kolonne i hovedeksporten som dekkes av en kampeksport */
   replaced: boolean
@@ -176,6 +182,37 @@ export function mergeExports(oldText: string, newText: string): string {
   return lines.map(l => l.map(cell).join(',')).join('\n') + '\n'
 }
 
+/** Ishaller i Hamar: Storhamar Ishall (SI2), CC Amfi (CC2) */
+const ICE = /ishall|amfi|^SI\s*\d|^CC\s*\d/i
+
+/**
+ * Tid på is: treninger og ekstratreninger med kjent varighet på en isflate.
+ * Kamper/cuper holdes utenfor (vanskelig å anslå istid), det samme gjør sommer- og barmarkstrening.
+ */
+export function iceMinutes(a: Activity): number {
+  if (!a.minutes || (a.kind !== 'trening' && a.kind !== 'ekstra')) return 0
+  if (/sommer|barmark|løp|styrke|futsal|møte|påmelding|cup|turnering/i.test(a.title ?? '')) return 0
+  if (a.place && !ICE.test(a.place)) return 0
+  return a.minutes
+}
+
+/** Minutter på is for en person: ja-svar på aktivitetene i `acts` */
+export const personIceMinutes = (p: Person, acts: Activity[]) =>
+  acts.reduce((sum, a) => sum + (p.statuses[a.idx] === 'ja' ? iceMinutes(a) : 0), 0)
+
+/** Skiller ut metadata fra local/rubic-csv.mjs: «Trening · Tittel [60 min] [rubic:7516/uuid]» */
+function parseLabel(label: string): { text: string; minutes?: number; rubicUrl?: string; place?: string } {
+  const min = label.match(/\[(\d+) min\]/)
+  const rubic = label.match(/\[rubic:(\d+)\/([\w-]+)\]/)
+  const place = label.match(/\[sted:([^\]]*)\]/)
+  return {
+    text: label.replace(/\s*\[(\d+ min|rubic:[^\]]*|sted:[^\]]*)\]/g, '').trim(),
+    place: place?.[1].trim() || undefined,
+    minutes: min ? Number(min[1]) : undefined,
+    rubicUrl: rubic ? `https://connect.rubic.no/organization/${rubic[1]}/activity/${rubic[2]}` : undefined,
+  }
+}
+
 function makeActivity(idx: number, date: string, time: string, kind: ActKind, source: string): Activity {
   const tournament = tournaments.find(t => t.date === date)
   return {
@@ -203,10 +240,14 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
   const matches = matchFiles.map(f => ({ f, x: parseExport(f.text) }))
 
   const activities: Activity[] = base.cols.map((c, i) => {
-    const [cat, ...rest] = c.label.split(' · ')
+    const meta = parseLabel(c.label)
+    const [cat, ...rest] = meta.text.split(' · ')
     // Kategori fra uttrekket: «Kamp» = kamp (som en kampeksport), «Ekstra» = frivillig ekstratrening
     const a = makeActivity(i, c.date, c.time, cat === 'Ekstra' ? 'ekstra' : cat === 'Kamp' ? 'kamp' : 'trening', main.name)
     if (rest.length) a.title = rest.join(' · ')
+    a.minutes = meta.minutes
+    a.rubicUrl = meta.rubicUrl
+    a.place = meta.place
     return a
   })
   const matchCols: { file: number; col: number; idx: number }[] = []
@@ -322,7 +363,7 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
 // ---------- statistikk ----------
 
 /** Avslag med godkjent grunn (annen idrett eller sykdom) – brukes av Furnes-siden */
-export const APPROVED_REASON = /fotball|futsal|hockey|syk/i
+export const APPROVED_REASON = /fotball|futsal|hockey|syk|obos/i
 
 /**
  * Hockeysesongen starter (siste seriekamp i fotball for årgangen var 29.09.2026).
@@ -330,9 +371,9 @@ export const APPROVED_REASON = /fotball|futsal|hockey|syk/i
  */
 export const HOCKEY_SEASON_START = '2026-10-01'
 
-/** Godkjent grunn for avslag på en hockeyaktivitet: syk og begravelse alltid, jobb for støtteapparat, fotball/futsal bare før hockeysesongen */
+/** Godkjent grunn for avslag på en hockeyaktivitet: syk, begravelse og Obos-turnering alltid, jobb for støtteapparat, fotball/futsal bare før hockeysesongen */
 export function approvedReason(reason: string, date: string, staff = false) {
-  if (/syk|begravelse/i.test(reason)) return true
+  if (/syk|begravelse|obos/i.test(reason)) return true
   if (staff && /jobb/i.test(reason)) return true
   return /fotball|futsal/i.test(reason) && date < HOCKEY_SEASON_START
 }

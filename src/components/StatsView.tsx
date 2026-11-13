@@ -1,5 +1,5 @@
-import { countStatuses, countsInStats, type Activity, type Person } from '../lib/model'
-import { pctText, shortDate } from '../lib/ui'
+import { countStatuses, countsInStats, iceMinutes, type Activity, type Person } from '../lib/model'
+import { hoursText, pctText, shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { Card, Empty } from './common'
 
@@ -42,6 +42,8 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
 
   const byDay = group(rows, r => String(r.a.at.getDay()), r => cap(DAYS[r.a.at.getDay()]))
     .sort((x, y) => DAY_ORDER.indexOf(Number(x.key)) - DAY_ORDER.indexOf(Number(y.key)))
+  const byMonth = group(rows, r => r.a.date.slice(0, 7), r => cap(r.a.at.toLocaleDateString('nb-NO', { month: 'long', year: 'numeric' })))
+    .sort((x, y) => x.key.localeCompare(y.key))
   const byTime = group(rows, r => r.a.time, r => `kl. ${r.a.time}`).sort((x, y) => x.key.localeCompare(y.key))
   const bySlot = group(rows, r => `${r.a.at.getDay()} ${r.a.time}`, r => `${cap(DAYS[r.a.at.getDay()])} ${r.a.time}`)
     .sort((x, y) => y.avgJa - x.avgJa)
@@ -56,18 +58,20 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
   })
   const sorted = [...rows].sort((x, y) => y.ja - x.ja || x.a.at.getTime() - y.a.at.getTime())
   const max = Math.max(...rows.map(r => r.ja))
+  // Samlet istid (treninger på is med kjent varighet fra local/rubic-csv.mjs)
+  const trainingMin = rows.reduce((sum, r) => sum + iceMinutes(r.a), 0)
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Tile label="Treninger" value={rows.length} sub="passerte i valgt periode" />
+        <Tile label="Treninger" value={rows.length} sub={`passerte i valgt periode${trainingMin ? ` · ${hoursText(trainingMin)} på is` : ''}`} />
         <Tile label="Snitt på trening" value={num(rows.reduce((s, r) => s + r.ja, 0) / rows.length)} sub={`av ${people.length} i utvalget`} />
         <Tile label="Flest (fast tid)" value={most ? num(most.avgJa) : '–'} sub={most ? `${most.label} · ${most.rows.length} treninger` : 'for lite data'} />
         <Tile label="Færrest (fast tid)" value={least && least !== most ? num(least.avgJa) : '–'} sub={least && least !== most ? `${least.label} · ${least.rows.length} treninger` : 'for lite data'} />
       </div>
 
       {weekday && weekend && (
-        <Card title="Hverdag mot helg" right="snitt antall ja">
+        <Card title="Hverdag mot helg">
           <Bars groups={[weekday, weekend]} max={max} />
           <p className="border-t border-slate-100 px-4 py-2 text-sm text-slate-600">
             {weekday.avgJa >= weekend.avgJa ? 'Hverdager' : 'Helger'} har i snitt{' '}
@@ -80,11 +84,17 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
         </Card>
       )}
 
+      {byMonth.length > 1 && (
+        <Card title="Per måned">
+          <Bars groups={byMonth} max={max} />
+        </Card>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Per ukedag" right="snitt antall ja">
+        <Card title="Per ukedag">
           <Bars groups={byDay} max={max} />
         </Card>
-        <Card title="Per klokkeslett" right="snitt antall ja">
+        <Card title="Per klokkeslett">
           <Bars groups={byTime} max={max} />
         </Card>
       </div>
@@ -108,17 +118,23 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
 function Bars({ groups, max }: { groups: Group[]; max: number }) {
   return (
     <ul className="divide-y divide-slate-100">
+      <li className="flex items-center gap-3 px-4 pt-1 pb-1.5 text-[11px] font-semibold tracking-wide text-slate-400 uppercase" aria-hidden="true">
+        <span className="flex-1" />
+        <span className="w-14 shrink-0 text-right">Snitt ja</span>
+        <span className="w-14 shrink-0 text-right">Oppmøte</span>
+        <span className="hidden w-16 shrink-0 text-right sm:inline">Treninger</span>
+      </li>
       {groups.map(g => {
-        const tip = `${g.label}: ${num(g.avgJa)} i snitt · ${pctText(g.avgPct)} · ${g.rows.length} treninger`
+        const tip = `${g.label}: ${num(g.avgJa)} sa ja i snitt · ${pctText(g.avgPct)} oppmøte · ${g.rows.length} treninger`
         return (
           <li key={g.key} className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50" title={tip}>
             <span className="w-28 shrink-0 font-medium">{g.label}</span>
             <span className="relative h-3 flex-1">
               <span className="absolute inset-y-0 left-0 rounded-r bg-navy" style={{ width: `${max ? (g.avgJa / max) * 100 : 0}%` }} />
             </span>
-            <span className="w-10 shrink-0 text-right font-bold tabular-nums">{num(g.avgJa)}</span>
-            <span className="w-12 shrink-0 text-right text-xs text-slate-500 tabular-nums">{pctText(g.avgPct)}</span>
-            <span className="hidden w-16 shrink-0 text-right text-xs text-slate-400 tabular-nums sm:inline">{g.rows.length} tr.</span>
+            <span className="w-14 shrink-0 text-right font-bold tabular-nums">{num(g.avgJa)}</span>
+            <span className="w-14 shrink-0 text-right text-xs text-slate-500 tabular-nums">{pctText(g.avgPct)}</span>
+            <span className="hidden w-16 shrink-0 text-right text-xs text-slate-400 tabular-nums sm:inline">{g.rows.length}</span>
           </li>
         )
       })}

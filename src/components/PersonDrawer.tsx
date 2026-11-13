@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { teams, tournaments, type TeamId } from '../data/sil15.js'
-import { colorTeam, isApproved, personStats, type Activity, type Person } from '../lib/model'
-import { longDate, monthLabel, pctText, shortDate, THEME } from '../lib/ui'
+import { colorTeam, isApproved, personIceMinutes, personStats, type Activity, type Person } from '../lib/model'
+import { hoursText, longDate, monthLabel, pctText, shortDate, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { ActLabel, Legend, NrBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip, Pii } from './common'
 
@@ -30,6 +30,10 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
     .filter(a => p.statuses[a.idx] !== null)
     .sort((x, y) => x.at.getTime() - y.at.getTime() || x.idx - y.idx)
   const upcoming = ctx.model.activities.filter(a => a.at >= ctx.now && p.statuses[a.idx] !== null)
+
+  // Tid på is: ja-svar på passerte istreninger (ikke kamper/barmark), inkl. frivillige ekstratreninger
+  const minMain = personIceMinutes(p, ctx.pastActs.filter(a => a.kind !== 'ekstra'))
+  const minExtra = personIceMinutes(p, ctx.periodExtra.filter(a => a.at < ctx.now))
 
   // Per måned (passerte, i valgt periode)
   const months: { m: string; acts: Activity[] }[] = []
@@ -88,6 +92,12 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
           </div>
           <div className="rounded-xl bg-white p-3 text-xs text-slate-500 shadow-sm">
             Hele perioden: <b className="text-slate-700">{pctText(sAll.pct)}</b> ({sAll.ja} av {sAll.invited}).
+            {minMain + minExtra > 0 && (
+              <>
+                {' '}Tid på is i valgt periode: <b className="text-slate-700">{hoursText(minMain + minExtra)}</b>
+                {minExtra > 0 && <> (herav {hoursText(minExtra)} {ctx.extraLabel})</>}.
+              </>
+            )}
             <ExtraNote s={ctx.extraStats.get(p.id)} label={`${ctx.extraLabel} i valgt periode`} /> Rubic «Totalt»: {p.rubicTotal || '–'}
             <div className="mt-1">
               Treninger: <b className="text-slate-700">{pctText(sTrening.pct)}</b> ({sTrening.ja} av {sTrening.invited}) · Kamper:{' '}

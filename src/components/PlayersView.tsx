@@ -1,17 +1,21 @@
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { teams } from '../data/sil15.js'
-import { colorTeam, type Person, type Stats } from '../lib/model'
-import { shortDate } from '../lib/ui'
+import { colorTeam, personIceMinutes, type Person, type Stats } from '../lib/model'
+import { hoursText, shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { Card, Empty, Legend, NrBadge, PersonBadge, PctStats, StatsBar, StatusDot, Pii } from './common'
 
-type SortKey = 'name' | 'team' | 'nr' | 'ja' | 'nei' | 'godkjent' | 'ikkeSvart' | 'pct' | 'streak'
+type SortKey = 'name' | 'team' | 'nr' | 'ja' | 'nei' | 'godkjent' | 'ikkeSvart' | 'pct' | 'streak' | 'ice'
 const teamOrder = (p: Person) => (p.kind === 'stab' ? 50 : 0) + (colorTeam(p) ? teams.findIndex(t => t.id === colorTeam(p)) : 99)
 
 export default function PlayersView({ ctx }: { ctx: Ctx }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'team', dir: 1 })
   const last = ctx.pastActs.slice(-8)
+  // Tid på is (passerte istreninger i valgt periode) – vises bare når eksporten har varighet
+  const pastExtra = ctx.periodExtra.filter(a => a.at < ctx.now)
+  const ice = new Map(ctx.visible.map(p => [p.id, { main: personIceMinutes(p, ctx.pastActs.filter(a => a.kind !== 'ekstra')), extra: personIceMinutes(p, pastExtra) }]))
+  const showIce = [...ice.values()].some(x => x.main + x.extra > 0)
 
   const val = (p: Person, s: Stats): number | string => {
     switch (sort.key) {
@@ -19,6 +23,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
       case 'team': return teamOrder(p) * 1000 + (p.nr ? Number(p.nr) : 999)
       case 'nr': return p.nr ? Number(p.nr) : 999
       case 'pct': return s.pct ?? -1
+      case 'ice': return (ice.get(p.id)?.main ?? 0) + (ice.get(p.id)?.extra ?? 0)
       default: return s[sort.key]
     }
   }
@@ -61,6 +66,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                 <th className="hidden w-40 px-2 py-2 font-semibold lg:table-cell">Fordeling</th>
                 <th className="hidden px-2 py-2 font-semibold xl:table-cell">Siste {last.length}</th>
                 <Th k="streak" className="hidden text-right lg:table-cell">På rad</Th>
+                {showIce && <Th k="ice" className="hidden text-right md:table-cell">På is</Th>}
                 <Th k="pct" className="pr-3 text-right sm:pr-4">Oppmøte</Th>
               </tr>
             </thead>
@@ -98,6 +104,14 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                     </div>
                   </td>
                   <td className="hidden px-2 py-2 text-right tabular-nums lg:table-cell">{s.streak || ''}</td>
+                  {showIce && (
+                    <td className="hidden px-2 py-2 text-right whitespace-nowrap tabular-nums md:table-cell" title="Tid på is: treninger og Early Bird med ja-svar i valgt periode (ikke kamper/barmark)">
+                      {ice.get(p.id)!.main + ice.get(p.id)!.extra ? hoursText(ice.get(p.id)!.main + ice.get(p.id)!.extra) : ''}
+                      {ice.get(p.id)!.extra > 0 && (
+                        <div className="text-[11px] text-violet-700" title={`Herav ${ctx.extraLabel} (frivillig)`}>☀️ {hoursText(ice.get(p.id)!.extra)}</div>
+                      )}
+                    </td>
+                  )}
                   <td className="py-2 pr-3 pl-1 text-right sm:pr-4 sm:pl-2"><PctStats s={s} stack /></td>
                 </tr>
               ))}

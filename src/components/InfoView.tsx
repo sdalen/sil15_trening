@@ -47,7 +47,7 @@ export default function InfoView() {
       <Section title="Godkjent fravær">
         <p>Et avslag er godkjent når grunnen i Rubic er:</p>
         <ul className="list-disc space-y-1 pl-5">
-          <li><b>Syk</b> og <b>begravelse</b> – alltid, for alle.</li>
+          <li><b>Syk</b>, <b>begravelse</b> og <b>Obos-turnering</b> – alltid, for alle.</li>
           <li><b>Jobb</b> – bare for støtteapparatet (trenere, lagledere osv.), ikke for spillere.</li>
           <li>
             <b>Fotball / futsal</b> – bare så lenge fotballen er i sesong (siste seriekamp var 29. september, så det

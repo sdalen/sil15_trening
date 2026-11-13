@@ -77,7 +77,7 @@ function Row({ a, ctx, people, focused }: { a: Activity; ctx: Ctx; people: Ctx['
       <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
         <div className="w-28 shrink-0">
           <div className="font-semibold">{shortDate(a.at)}</div>
-          <div className="text-xs text-slate-500">kl. {a.time}</div>
+          <div className="text-xs text-slate-500">kl. {a.time}{a.minutes ? ` · ${a.minutes} min` : ''}</div>
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
@@ -94,6 +94,11 @@ function Row({ a, ctx, people, focused }: { a: Activity; ctx: Ctx; people: Ctx['
       </button>
       {open && (
         <div className="space-y-3 bg-slate-50 px-4 py-3">
+          {a.rubicUrl && (
+            <a href={a.rubicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-navy underline-offset-2 hover:underline">
+              Åpne i Rubic ↗
+            </a>
+          )}
           {[...teams.map(t => t.id), null].map(tid => {
             const members = people.filter(p => p.statuses[a.idx] !== null && colorTeam(p) === tid)
             if (!members.length) return null
