@@ -60,6 +60,12 @@ export default function App() {
   const [now, setNow] = useState(() => new Date())
   const [furnes, setFurnes] = useState<boolean>(() => store.get('furnes', false))
   const [showInfo, setShowInfo] = useState(false)
+  // Anonymiser: slører alle navn (for skjermdeling). Huskes i nettleseren.
+  const [anon, setAnon] = useState<boolean>(() => store.get('anon', false))
+  useEffect(() => {
+    store.set('anon', anon || undefined)
+    document.documentElement.toggleAttribute('data-anon', anon)
+  }, [anon])
   // Lagret fane fra før Info ble flyttet til ikon
   useEffect(() => { if (!TABS.some(t => t.id === tab)) setTab('oversikt') }, [tab])
   useEffect(() => store.set('furnes', furnes || undefined), [furnes])
@@ -184,7 +190,8 @@ export default function App() {
 
   const info = showInfo && <InfoModal onClose={() => setShowInfo(false)} />
 
-  if (furnes) return <FurnesView onBack={() => setFurnes(false)} />
+  const anonButton = <AnonButton on={anon} onClick={() => setAnon(a => !a)} />
+  if (furnes) return <FurnesView onBack={() => setFurnes(false)} extra={anonButton} />
 
   if (!model || !ctx) {
     return (
@@ -219,7 +226,7 @@ export default function App() {
                 U12 <span className="text-sh-yellow">Oppmøte</span>
               </h1>
               <p className="truncate text-[11px] text-white/55">
-                {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i stab · {model.activities.length} aktiviteter
+                {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i støtteapparat · {model.activities.length} aktiviteter
               </p>
             </div>
             <label className={GHOST} title="Legg til CSV">
@@ -227,6 +234,7 @@ export default function App() {
               <span>CSV</span>
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
             </label>
+            {anonButton}
             <InfoButton onClick={() => setShowInfo(true)} />
             <button onClick={() => setFurnes(true)} className={`${GHOST} text-emerald-200 ring-emerald-400/40 hover:bg-emerald-400/15`}>
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -251,7 +259,7 @@ export default function App() {
               />
             </div>
             <div className="flex shrink-0 gap-2 overflow-x-auto">
-              <div className={SEGMENT} role="radiogroup" aria-label="Vis spillere eller stab">
+              <div className={SEGMENT} role="radiogroup" aria-label="Vis spillere eller støtteapparat">
                 {(['spillere', 'stab'] as const).map(g => (
                   <button
                     key={g}
@@ -260,7 +268,7 @@ export default function App() {
                     onClick={() => { setGroup(g); setTeam('alle') }}
                     className={segItem(group === g)}
                   >
-                    {g === 'spillere' ? 'Spillere' : 'Stab'}
+                    {g === 'spillere' ? 'Spillere' : 'Støtte'}
                   </button>
                 ))}
               </div>
@@ -432,6 +440,29 @@ function Landing(props: {
         )}
       </div>
     </div>
+  )
+}
+
+function AnonButton({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={on}
+      title={on ? 'Vis navn' : 'Anonymiser – slør alle navn'}
+      className={`${GHOST} ${on ? 'bg-sh-yellow text-navy ring-sh-yellow hover:bg-sh-yellow/90' : ''}`}
+    >
+      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        {on ? (
+          <path fillRule="evenodd" d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.03 10.03 0 003.3-4.38 1.65 1.65 0 000-1.19A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.092 1.092a4 4 0 00-5.558-5.558zM10.748 13.93l2.523 2.523a9.987 9.987 0 01-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 010-1.186A10.007 10.007 0 012.839 6.02L6.07 9.252a4 4 0 004.678 4.678z" clipRule="evenodd" />
+        ) : (
+          <>
+            <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+            <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+          </>
+        )}
+      </svg>
+      <span className="hidden sm:inline">{on ? 'Anonym' : 'Anonymiser'}</span>
+    </button>
   )
 }
 

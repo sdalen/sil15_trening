@@ -4,7 +4,7 @@ import { teams } from '../data/sil15.js'
 import { colorTeam, type Person, type Stats } from '../lib/model'
 import { shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { Card, Empty, Legend, NrBadge, PersonBadge, PctStats, StatsBar, StatusDot } from './common'
+import { Card, Empty, Legend, NrBadge, PersonBadge, PctStats, StatsBar, StatusDot, Pii } from './common'
 
 type SortKey = 'name' | 'team' | 'nr' | 'ja' | 'nei' | 'godkjent' | 'ikkeSvart' | 'pct' | 'streak'
 const teamOrder = (p: Person) => (p.kind === 'stab' ? 50 : 0) + (colorTeam(p) ? teams.findIndex(t => t.id === colorTeam(p)) : 99)
@@ -70,7 +70,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                   <td className="py-2 pr-1 pl-3 sm:pr-2 sm:pl-4"><NrBadge p={p} /></td>
                   <td className="px-2 py-2">
                     <div className="font-medium">
-                      {p.name} {p.uncertain && <span title="Usikker kobling til lagoppsett">⚠️</span>}
+                      <Pii id={p.id}>{p.name}</Pii> {p.uncertain && <span title="Usikker kobling til lagoppsett">⚠️</span>}
                       {p.inactive && <span className="ml-1 rounded bg-slate-200 px-1.5 text-xs font-semibold text-slate-600">Trolig sluttet</span>}
                       {p.note && <span className="ml-1 rounded bg-slate-100 px-1.5 text-xs text-slate-600" title="Keeperdrakt">🥅</span>}
                     </div>

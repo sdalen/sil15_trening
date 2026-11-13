@@ -4,7 +4,7 @@ import { teams, type TeamId } from '../data/sil15.js'
 import { average, colorTeam, countsInStats, countStatuses, type Activity, type Person } from '../lib/model'
 import { daysUntil, longDate, pctColor, pctText, shortDate, store, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { ActLabel, Card, Empty, Legend, NrBadge, PersonBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip, TeamBadge } from './common'
+import { ActLabel, Card, Empty, Legend, NrBadge, PersonBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip, TeamBadge, Pii } from './common'
 
 export default function Overview({ ctx }: { ctx: Ctx }) {
   const { pastActs, stats, model, now } = ctx
@@ -95,14 +95,14 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
         <Kpi
           label={`Under ${lowPct} %`}
           value={<span className={under50.length ? 'text-rose-700' : ''}>{under50.length}</span>}
-          sub={ctx.group === "stab" ? "i stab med lavt oppmøte" : "spillere med lavt oppmøte"}
+          sub={ctx.group === "stab" ? "i støtteapparatet med lavt oppmøte" : "spillere med lavt oppmøte"}
           onClick={() => setList(l => (l === 'under50' ? null : 'under50'))}
           active={list === 'under50'}
         />
         <Kpi
           label={`Minst ${highPct} %`}
           value={<span className={over80.length ? 'text-emerald-700' : ''}>{over80.length}</span>}
-          sub={ctx.group === "stab" ? "i stab med høyt oppmøte" : "spillere med høyt oppmøte"}
+          sub={ctx.group === "stab" ? "i støtteapparatet med høyt oppmøte" : "spillere med høyt oppmøte"}
           onClick={() => setList(l => (l === 'over80' ? null : 'over80'))}
           active={list === 'over80'}
         />
@@ -173,7 +173,7 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
         >
           <RankList items={showAll ? ranked : ranked.slice(0, 8)} ctx={ctx} numbered />
         </Card>
-        <Card title="Lavest oppmøte" right="kan trenge en oppfølging">
+        <Card title="Lavest oppmøte">
           <RankList items={ranked.slice(-8).reverse()} ctx={ctx} />
         </Card>
       </div>
@@ -260,7 +260,7 @@ function Upcoming({ a, ctx }: { a: Activity; ctx: Ctx }) {
                   <li key={p.id}>
                     <button onClick={() => ctx.openPerson(p.id)} className="flex items-center gap-1.5 hover:underline">
                       <span className={`h-2 w-2 rounded-full ${THEME[colorTeam(p) ?? 'none'].dot}`} />
-                      {p.short ?? p.name}
+                      <Pii id={p.id}>{p.short ?? p.name}</Pii>
                     </button>
                   </li>
                 ))}
@@ -285,7 +285,7 @@ function TeamRow({ teamId, ctx }: { teamId: TeamId; ctx: Ctx }) {
       <div className="min-w-0 flex-1">
         <SplitBar {...sum} className="h-3" />
         <div className="mt-1 text-xs text-slate-500">
-          {members.length} {ctx.group === "stab" ? "i stab" : "spillere"} · {sum.ja} ja · {sum.nei} avslått · {sum.ikkeSvart} ikke svart
+          {members.length} {ctx.group === "stab" ? "i støtteapparatet" : "spillere"} · {sum.ja} ja · {sum.nei} avslått · {sum.ikkeSvart} ikke svart
         </div>
       </div>
       <Pct value={avg} className="w-14 text-right text-lg" />
@@ -349,7 +349,7 @@ function RankList({ items, ctx, numbered }: { items: { p: Person; s: { pct: numb
             {numbered && <span className="w-6 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-400">{i + 1}.</span>}
             <NrBadge p={p} />
             <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">{p.name}</div>
+              <div className="truncate font-medium"><Pii id={p.id}>{p.name}</Pii></div>
               <div className="text-xs text-slate-500">
                 {s.ja} av {s.invited} aktiviteter
                 <ExtraNote s={ctx.extraStats.get(p.id)} label={ctx.extraLabel} />
@@ -387,7 +387,7 @@ function DataQuality({ ctx }: { ctx: Ctx }) {
           </Box>
         )}
         {others.length > 0 && (
-          <Box title={`I Rubic, men verken spiller eller stab (${others.length})`} hint="Klikk for å legge personen til et lag.">
+          <Box title={`I Rubic, men verken spiller eller støtteapparat (${others.length})`} hint="Klikk for å legge personen til et lag.">
             <div className="flex flex-wrap gap-x-3 gap-y-1">
               {others.map(p => <PersonLink key={p.id} p={p} ctx={ctx} />)}
             </div>
@@ -416,8 +416,8 @@ function Box({ title, hint, children }: { title: string; hint?: string; children
 function PersonLink({ p, ctx, extra }: { p: Person; ctx: Ctx; extra?: string }) {
   return (
     <button onClick={() => ctx.openPerson(p.id)} className="text-left text-sky-800 hover:underline">
-      {p.name}
-      {extra && <span className="text-slate-500"> {extra}</span>}
+      <Pii id={p.id}>{p.name}</Pii>
+      {extra && <span className="pii text-slate-500"> {extra}</span>}
     </button>
   )
 }
@@ -461,7 +461,7 @@ function Unregistered({ ctx }: { ctx: Ctx }) {
               {who.map(p => (
                 <button key={p.id} onClick={() => ctx.openPerson(p.id)} className="flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1 text-xs ring-1 ring-slate-200 hover:ring-slate-400">
                   <span className={`h-2 w-2 rounded-full ${THEME[colorTeam(p) ?? 'none'].dot}`} />
-                  {p.short ?? p.name}
+                  <Pii id={p.id}>{p.short ?? p.name}</Pii>
                 </button>
               ))}
             </div>

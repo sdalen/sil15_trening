@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { APPROVED_REASON, inPeriod, monthsWithData, parseExport, type Period, type Status } from '../lib/model'
 import { shortDate, store } from '../lib/ui'
-import { PctStats, StatusChip } from './common'
+import { PctStats, StatusChip, Pii } from './common'
 
 /**
  * Furnes fotball: bare spillere og oppmøte. Leser en egen CSV i Rubic-eksportformat
@@ -22,7 +22,7 @@ const PLURAL: Record<Cat, string> = {
   Alle: 'aktiviteter', Trening: 'treninger', Sommertrening: 'sommertreninger', Kamp: 'kamper', Treningskamp: 'treningskamper', Cup: 'cuper',
 }
 
-export default function FurnesView({ onBack }: { onBack: () => void }) {
+export default function FurnesView({ onBack, extra }: { onBack: () => void; extra?: ReactNode }) {
   const [csv, setCsv] = useState<{ name: string; text: string } | null>(() => store.get('furnesCsv', null))
   useEffect(() => store.set('furnesCsv', csv ?? undefined), [csv])
   const [cat, setCat] = useState<Cat>(() => store.get('furnesCat', 'Trening'))
@@ -88,7 +88,8 @@ export default function FurnesView({ onBack }: { onBack: () => void }) {
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <button onClick={onBack} className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold hover:bg-white/25">← Storhamar</button>
           <h1 className="text-lg font-black tracking-wide">Furnes <span className="text-emerald-200">Oppmøte</span></h1>
-          <label className="ml-auto cursor-pointer rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-white/25">
+          <div className="ml-auto">{extra}</div>
+          <label className="cursor-pointer rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-white/25">
             {csv ? 'Bytt CSV' : 'Last inn CSV'}
             <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
           </label>
@@ -147,7 +148,7 @@ export default function FurnesView({ onBack }: { onBack: () => void }) {
                         <td className="py-2 pl-4 text-slate-400 tabular-nums">{i + 1}.</td>
                         <td className="px-2 py-2 font-medium">
                           <span className="mr-1 inline-block w-3 text-slate-400">{open === r.name ? '▾' : '▸'}</span>
-                          {r.name}
+                          <Pii id={`furnes:${r.name}`}>{r.name}</Pii>
                         </td>
                         <td className="px-2 py-2 text-right text-slate-500 tabular-nums">
                           {r.ja} av {r.invited}

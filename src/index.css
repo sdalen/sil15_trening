@@ -10,3 +10,18 @@
 html { -webkit-tap-highlight-color: transparent; }
 body { padding-bottom: env(safe-area-inset-bottom); }
 summary::-webkit-details-marker { display: none; }
+
+/* Anonymiser: navn (komponenten Pii) sløres – nok til skjermdeling; dataene krever uansett CSV + salt */
+html[data-anon] .pii {
+  /* Lik stolpe for alle navn – lengden på navnet skal ikke synes */
+  display: inline-block;
+  width: 7.5em;
+  height: 0.9em;
+  overflow: hidden;
+  vertical-align: middle;
+  color: transparent !important;
+  background: rgb(148 163 184 / 0.45);
+  border-radius: 9999px;
+  filter: blur(1.5px);
+  user-select: none;
+}

@@ -3,7 +3,7 @@ import { teams } from '../data/sil15.js'
 import { average, colorTeam, countsInStats, countStatuses, personStats, type Activity, type Person } from '../lib/model'
 import { longDate, pctText, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { Card, Empty, Legend, NrBadge, PersonBadge, Pct, SplitBar, StatusChip, TeamBadge } from './common'
+import { Card, Empty, Legend, NrBadge, PersonBadge, Pct, SplitBar, StatusChip, TeamBadge, Pii } from './common'
 
 interface Props {
   ctx: Ctx
@@ -86,7 +86,7 @@ export default function KamperView({ ctx, uploaded, onAdd, onRemove }: Props) {
                 {rows.map(({ p, s }) => (
                   <tr key={p.id} onClick={() => ctx.openPerson(p.id)} className="cursor-pointer hover:bg-slate-50">
                     <td className="py-2 pr-2 pl-4"><NrBadge p={p} /></td>
-                    <td className="px-2 py-2 font-medium">{p.name}</td>
+                    <td className="px-2 py-2 font-medium"><Pii id={p.id}>{p.name}</Pii></td>
                     <td className="hidden px-2 py-2 sm:table-cell"><PersonBadge p={p} /></td>
                     <td className="px-2 py-2 text-right tabular-nums">{s.invited}</td>
                     <td className="px-2 py-2 text-right font-semibold tabular-nums text-emerald-700">{s.ja}</td>
@@ -102,7 +102,7 @@ export default function KamperView({ ctx, uploaded, onAdd, onRemove }: Props) {
         )}
         {notCalled.length > 0 && kamper.length > 0 && (
           <p className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
-            Ikke innkalt til noen av kampene: {notCalled.map(p => p.short ?? p.name).join(', ')}
+            Ikke innkalt til noen av kampene: {notCalled.map((p, i) => <span key={p.id}>{i > 0 && ', '}<Pii id={p.id}>{p.short ?? p.name}</Pii></span>)}
           </p>
         )}
       </Card>
@@ -174,7 +174,7 @@ function MatchCard({ a, ctx }: { a: Activity; ctx: Ctx }) {
               {c[s].map(p => (
                 <li key={p.id}>
                   <button onClick={() => ctx.openPerson(p.id)} className="text-left hover:underline">
-                    {p.short ?? p.name}
+                    <Pii id={p.id}>{p.short ?? p.name}</Pii>
                     {p.role && <span className="text-xs text-slate-400"> ({p.role.toLowerCase()})</span>}
                   </button>
                 </li>

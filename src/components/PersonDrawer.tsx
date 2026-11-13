@@ -4,7 +4,7 @@ import { teams, tournaments, type TeamId } from '../data/sil15.js'
 import { colorTeam, isApproved, personStats, type Activity, type Person } from '../lib/model'
 import { longDate, monthLabel, pctText, shortDate, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { ActLabel, Legend, NrBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip } from './common'
+import { ActLabel, Legend, NrBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip, Pii } from './common'
 
 interface Props {
   ctx: Ctx
@@ -53,12 +53,12 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
         <div className={`sticky top-0 z-10 flex items-center gap-3 px-4 py-4 text-white ${ct === 'gul' ? 'bg-sh-yellow text-navy!' : ct === 'hvit' || !ct ? 'bg-navy' : THEME[ct].bar}`}>
           <NrBadge p={p} />
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-bold">{p.name}</h2>
+            <h2 className="truncate text-lg font-bold"><Pii id={p.id}>{p.name}</Pii></h2>
             <p className="text-sm opacity-80">
               {p.inactive && <>Trolig sluttet · </>}
               {p.role && <>{p.role} · </>}
               {team ? team.name : p.role ? 'Felles for alle lag' : 'Uten lag'}
-              {p.short && p.short !== p.name.split(' ')[0] && <> · «{p.short}»</>}
+              {p.short && p.short !== p.name.split(' ')[0] && <> · «<Pii>{p.short}</Pii>»</>}
               {p.note && <> · 🥅 keeperdrakt {p.note.replace('K ', 'nr ')}</>}
             </p>
           </div>
@@ -77,7 +77,7 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
             <select value={selectValue} onChange={e => onSetTeam(e.target.value as TeamId | 'none' | 'auto')} className="ml-auto rounded-md bg-slate-100 px-2 py-1">
               <option value="auto">Automatisk ({p.overridden ? 'fra lagoppsett' : autoLabel})</option>
               {teams.map(t => <option key={t.id} value={t.id}>Spiller på {t.name}</option>)}
-              <option value="none">Ikke spiller (stab/forelder/annet)</option>
+              <option value="none">Ikke spiller (støtteapparat/forelder/annet)</option>
             </select>
           </label>
 

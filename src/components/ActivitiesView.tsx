@@ -4,7 +4,7 @@ import { countStatuses, type Activity } from '../lib/model'
 import { colorTeam, fold } from '../lib/model'
 import { longDate, monthLabel, pctText, shortDate, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { ActLabel, Card, Empty, Legend, SplitBar, StatusChip, TeamBadge } from './common'
+import { ActLabel, Card, Empty, Legend, SplitBar, StatusChip, TeamBadge, Pii } from './common'
 
 export default function ActivitiesView({ ctx }: { ctx: Ctx }) {
   const [order, setOrder] = useState<'nyest' | 'eldst'>('nyest')
@@ -112,7 +112,7 @@ function Row({ a, ctx, people, focused }: { a: Activity; ctx: Ctx; people: Ctx['
                     .map(p => (
                       <button key={p.id} onClick={() => ctx.openPerson(p.id)} className="flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-xs shadow-sm hover:ring-1 hover:ring-slate-300">
                         <span className={`h-2 w-2 rounded-full ${THEME[colorTeam(p) ?? 'none'].dot}`} />
-                        {p.short ?? p.name}
+                        <Pii id={p.id}>{p.short ?? p.name}</Pii>
                         <StatusChip s={p.statuses[a.idx]} />
                       </button>
                     ))}

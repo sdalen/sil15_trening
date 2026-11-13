@@ -82,7 +82,7 @@ export default function InfoView() {
 
       <Section title="Filtre">
         <ul className="list-disc space-y-1 pl-5">
-          <li><b>Spillere / Stab</b> og <b>lag</b> øverst velger hvem som vises.</li>
+          <li><b>Spillere / Støtte</b> og <b>lag</b> øverst velger hvem som vises.</li>
           <li><b>Periode</b>: høst/vår-sesong, siste 30/60 dager, hele perioden eller én måned.</li>
           <li><b>Kamper og treninger</b>, kun treninger eller kun kamper.</li>
         </ul>

@@ -46,6 +46,13 @@ export function Pct({ value, className = '' }: { value: number | null; className
   return <span className={`font-bold tabular-nums ${pctColor(value)} ${className}`}>{pctText(value)}</span>
 }
 
+/** Navn – sløres med CSS når «Anonymiser» er på (html[data-anon]) */
+export function Pii({ children }: { id?: string; children: ReactNode }) {
+  return <span className="pii">{children}</span>
+}
+/** Tooltips kan ikke sløres – bruk denne for å utelate navn der */
+export const isAnon = () => document.documentElement.hasAttribute('data-anon')
+
 /** Oppmøte («riktig» prosent), med prosent der godkjent fravær ikke teller i parentes */
 export function PctStats({ s, className = '', stack }: { s: Pick<Stats, 'pct' | 'pctGodkjent' | 'godkjent'>; className?: string; stack?: boolean }) {
   // stack: parentesen under hovedprosenten på smale skjermer
