@@ -1,7 +1,7 @@
-import { countStatuses, countsInStats, iceMinutes, type Activity, type Person } from '../lib/model'
+import { countStatuses, countsInStats, iceMinutes, personIceMinutes, type Activity, type Person } from '../lib/model'
 import { hoursText, pctText, shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
-import { Card, Empty } from './common'
+import { Card, Empty, NrBadge, Pii } from './common'
 
 /** Når er vi flest og færrest på trening? Bare passerte treninger i valgt periode, lag og gruppe. */
 const DAYS = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag']
@@ -61,6 +61,26 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
   // Samlet istid (treninger på is med kjent varighet fra local/rubic-csv.mjs)
   const trainingMin = rows.reduce((sum, r) => sum + iceMinutes(r.a), 0)
 
+  // Istid per person: passerte istreninger + frivillige ekstratreninger (Early Bird) med ja-svar
+  const trainActs = rows.map(r => r.a)
+  const extraActs = ctx.periodExtra.filter(a => a.at < ctx.now)
+  const ice = people
+    .map(p => ({ p, main: personIceMinutes(p, trainActs), extra: personIceMinutes(p, extraActs) }))
+    .map(x => ({ ...x, total: x.main + x.extra }))
+    .sort((x, y) => y.total - x.total || x.p.name.localeCompare(y.p.name, 'nb'))
+  const hasIce = ice.some(x => x.total > 0)
+  const iceMax = Math.max(1, ...ice.map(x => x.total))
+  // Snitt istid per spiller per måned, og hvor mye istid som ble tilbudt (vanlige treninger)
+  const iceMonths = [...new Set([...trainActs, ...extraActs].map(a => a.date.slice(0, 7)))].sort().map(m => {
+    const tr = trainActs.filter(a => a.date.startsWith(m))
+    const ex = extraActs.filter(a => a.date.startsWith(m))
+    const avg = people.length ? people.reduce((sum, p) => sum + personIceMinutes(p, tr) + personIceMinutes(p, ex), 0) / people.length : 0
+    const offered = tr.reduce((sum, a) => sum + iceMinutes(a), 0)
+    const label = cap(new Date(`${m}-01T12:00:00`).toLocaleDateString('nb-NO', { month: 'long', year: 'numeric' }))
+    return { m, label, avg, offered }
+  }).filter(x => x.offered > 0 || x.avg > 0)
+  const monthMax = Math.max(1, ...iceMonths.map(x => Math.max(x.avg, x.offered)))
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -88,6 +108,35 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
         <Card title="Per måned">
           <Bars groups={byMonth} max={max} />
         </Card>
+      )}
+
+      {hasIce && (
+        <>
+          <Card title="Snitt istid per måned" right="per spiller · av tilbudt">
+            <ul className="divide-y divide-slate-100">
+              {iceMonths.map(x => (
+                <li key={x.m} className="flex items-center gap-3 px-4 py-2 text-sm" title={`${x.label}: ${hoursText(x.avg)} i snitt per spiller av ${hoursText(x.offered)} tilbudt (vanlige treninger; Early Bird kommer i tillegg)`}>
+                  <span className="w-32 shrink-0 font-medium">{x.label}</span>
+                  <span className="relative h-3 flex-1">
+                    <span className="absolute inset-y-0 left-0 rounded-r bg-slate-200" style={{ width: `${(x.offered / monthMax) * 100}%` }} />
+                    <span className="absolute inset-y-0 left-0 rounded-r bg-navy" style={{ width: `${(x.avg / monthMax) * 100}%` }} />
+                  </span>
+                  <span className="w-14 shrink-0 text-right font-bold tabular-nums">{hoursText(x.avg)}</span>
+                  <span className="w-16 shrink-0 text-right text-xs text-slate-400 tabular-nums">av {hoursText(x.offered)}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="Mest istid" right="treninger + Early Bird">
+              <IceList rows={ice.slice(0, 10)} max={iceMax} ctx={ctx} />
+            </Card>
+            <Card title="Minst istid" right="treninger + Early Bird">
+              <IceList rows={ice.slice(-10).reverse()} max={iceMax} ctx={ctx} />
+            </Card>
+          </div>
+        </>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -138,6 +187,31 @@ function Bars({ groups, max }: { groups: Group[]; max: number }) {
           </li>
         )
       })}
+    </ul>
+  )
+}
+
+function IceList({ rows, max, ctx }: { rows: { p: Person; main: number; extra: number; total: number }[]; max: number; ctx: Ctx }) {
+  return (
+    <ul className="divide-y divide-slate-100">
+      {rows.map(x => (
+        <li key={x.p.id}>
+          <button onClick={() => ctx.openPerson(x.p.id)} className="flex w-full items-center gap-3 px-4 py-1.5 text-left text-sm hover:bg-slate-50">
+            <NrBadge p={x.p} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium"><Pii id={x.p.id}>{x.p.name}</Pii></span>
+              <span className="relative mt-1 block h-1.5">
+                <span className="absolute inset-y-0 left-0 rounded-r bg-navy" style={{ width: `${(x.main / max) * 100}%` }} />
+                <span className="absolute inset-y-0 rounded-r bg-violet-400" style={{ left: `${(x.main / max) * 100}%`, width: `${(x.extra / max) * 100}%` }} />
+              </span>
+            </span>
+            <span className="w-14 shrink-0 text-right">
+              <span className="block font-bold tabular-nums">{hoursText(x.total)}</span>
+              {x.extra > 0 && <span className="block text-[11px] text-violet-700 tabular-nums">☀️ {hoursText(x.extra)}</span>}
+            </span>
+          </button>
+        </li>
+      ))}
     </ul>
   )
 }
