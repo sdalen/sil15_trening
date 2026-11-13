@@ -103,7 +103,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                       {last.map(a => <StatusDot key={a.idx} s={p.statuses[a.idx]} title={`${shortDate(a.at)} ${a.time}`} />)}
                     </div>
                   </td>
-                  <td className="hidden px-2 py-2 text-right tabular-nums lg:table-cell">{s.streak || ''}</td>
+                  <td className="hidden px-2 py-2 text-right tabular-nums lg:table-cell">{s.streak}</td>
                   {showIce && (
                     <td className="hidden px-2 py-2 text-right whitespace-nowrap tabular-nums md:table-cell" title="Tid på is: treninger og Early Bird med ja-svar i valgt periode (ikke kamper/barmark)">
                       {ice.get(p.id)!.main + ice.get(p.id)!.extra ? hoursText(ice.get(p.id)!.main + ice.get(p.id)!.extra) : ''}
