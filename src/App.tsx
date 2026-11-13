@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { teams, type TeamId } from './data/sil15.js'
 import {
   buildModel, colorTeam, fold, mergeExports, parseExport, inPeriod, isPeriod, matchesType, monthsWithData, namesIn, personStats, PERIODS,
@@ -52,7 +52,8 @@ export default function App() {
     const t = store.get<string>('actType', 'alle')
     return t === 'kamp' || t === 'trening' || t === 'ekstra' ? t : 'alle'
   })
-  const [noAnswerIsAbsent, setNoAnswerIsAbsent] = useState<boolean>(() => store.get('noAnswerIsAbsent', true))
+  // «Ikke svart» teller alltid som fravær
+  const noAnswerIsAbsent = true
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [focusAct, setFocusAct] = useState<number | null>(null)
@@ -72,7 +73,6 @@ export default function App() {
   useEffect(() => store.set('team', team), [team])
   useEffect(() => store.set('period', period), [period])
   useEffect(() => store.set('actType', actType), [actType])
-  useEffect(() => store.set('noAnswerIsAbsent', noAnswerIsAbsent), [noAnswerIsAbsent])
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
@@ -210,65 +210,73 @@ export default function App() {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-20 bg-navy text-white shadow-lg">
-        <div className="mx-auto max-w-6xl px-4 pt-3 pb-3">
+      <header className="sticky top-0 z-20 bg-navy text-white shadow-lg shadow-navy/20">
+        <div className="mx-auto max-w-6xl px-4 py-3">
           <div className="flex items-center gap-3">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="h-9 w-auto shrink-0 drop-shadow sm:h-11" />
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="h-9 w-auto shrink-0 drop-shadow sm:h-10" />
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-black leading-tight tracking-wide">
+              <h1 className="truncate text-lg leading-tight font-extrabold tracking-tight">
                 U12 <span className="text-sh-yellow">Oppmøte</span>
               </h1>
-              <p className="truncate text-xs text-white/70">
+              <p className="truncate text-[11px] text-white/55">
                 {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i stab · {model.activities.length} aktiviteter
               </p>
             </div>
-            <label className="shrink-0 cursor-pointer rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-white/25" title="Legg til CSV">
-              <span className="sm:hidden">+ CSV</span>
-              <span className="hidden sm:inline">Legg til CSV</span>
+            <label className={GHOST} title="Legg til CSV">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" /></svg>
+              <span>CSV</span>
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
             </label>
             <InfoButton onClick={() => setShowInfo(true)} />
-            <button onClick={() => setFurnes(true)} className="shrink-0 rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-emerald-600">
+            <button onClick={() => setFurnes(true)} className={`${GHOST} text-emerald-200 ring-emerald-400/40 hover:bg-emerald-400/15`}>
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Furnes
             </button>
-            <button onClick={clearData} className="hidden rounded-full px-2 py-1.5 text-xs text-white/70 hover:text-white sm:block" title="Fjern opplastede filer fra denne nettleseren">
+            <button onClick={clearData} className="hidden shrink-0 text-[11px] text-white/45 hover:text-white sm:block" title="Fjern opplastede filer fra denne nettleseren">
               Fjern data
             </button>
           </div>
 
           <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
             <div className="relative flex-1">
+              <svg className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/45 peer-focus:text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a.75.75 0 11-1.06 1.06l-3.08-3.08A7 7 0 012 9z" clipRule="evenodd" />
+              </svg>
               <input
                 type="search"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder={group === 'spillere' ? 'Søk etter spiller, draktnummer eller lag …' : 'Søk etter navn, rolle eller lag …'}
-                className="w-full rounded-xl bg-white px-4 py-2.5 pl-10 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-sh-yellow/50 focus:outline-none"
+                className="h-9 w-full rounded-lg bg-white/10 pr-3 pl-9 text-sm text-white ring-1 ring-white/10 transition placeholder:text-white/45 hover:bg-white/15 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-sh-yellow/60 focus:outline-none focus:placeholder:text-slate-400"
               />
-              <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-slate-400">⌕</span>
             </div>
-            <div className="flex shrink-0 rounded-xl bg-white/15 p-1" role="radiogroup" aria-label="Vis spillere eller stab">
-              {(['spillere', 'stab'] as const).map(g => (
-                <button
-                  key={g}
-                  role="radio"
-                  aria-checked={group === g}
-                  onClick={() => { setGroup(g); setTeam('alle') }}
-                  className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-bold transition ${group === g ? 'bg-white text-navy shadow' : 'text-white/70 hover:text-white'}`}
-                >
-                  {g === 'spillere' ? 'Spillere' : 'Stab'}
-                </button>
-              ))}
+            <div className="flex shrink-0 gap-2 overflow-x-auto">
+              <div className={SEGMENT} role="radiogroup" aria-label="Vis spillere eller stab">
+                {(['spillere', 'stab'] as const).map(g => (
+                  <button
+                    key={g}
+                    role="radio"
+                    aria-checked={group === g}
+                    onClick={() => { setGroup(g); setTeam('alle') }}
+                    className={segItem(group === g)}
+                  >
+                    {g === 'spillere' ? 'Spillere' : 'Stab'}
+                  </button>
+                ))}
+              </div>
+              <nav className={SEGMENT} aria-label="Velg lag">
+                <button onClick={() => setTeam('alle')} className={segItem(ctx.team === 'alle')}>Alle</button>
+                {teams.map(t => (
+                  <button key={t.id} onClick={() => setTeam(t.id)} className={segItem(ctx.team === t.id)}>
+                    <span className={`h-2 w-2 rounded-full ${THEME[t.id].dot}`} />
+                    {t.short}
+                  </button>
+                ))}
+                {group === 'stab' && (
+                  <button onClick={() => setTeam('uten')} className={segItem(ctx.team === 'uten')}>Felles</button>
+                )}
+              </nav>
             </div>
-            <nav className="flex gap-1.5 overflow-x-auto p-1" aria-label="Velg lag">
-              <TeamButton active={ctx.team === 'alle'} onClick={() => setTeam('alle')} cls="bg-white/15 text-white">Alle lag</TeamButton>
-              {teams.map(t => (
-                <TeamButton key={t.id} active={ctx.team === t.id} onClick={() => setTeam(t.id)} cls={THEME[t.id].pill}>{t.short}</TeamButton>
-              ))}
-              {group === 'stab' && (
-                <TeamButton active={ctx.team === 'uten'} onClick={() => setTeam('uten')} cls="bg-slate-500 text-white">Felles/andre</TeamButton>
-              )}
-            </nav>
           </div>
         </div>
       </header>
@@ -286,22 +294,22 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:items-center md:justify-end">
+          {/* Verktøylinje: periode · type · ikke svart – én samlet boks */}
+          <div className="flex flex-wrap items-center gap-1 self-stretch rounded-xl bg-white p-1 text-sm shadow-sm sm:flex-nowrap md:self-end">
             <Select
+              label="Periode"
               value={period}
               onChange={v => setPeriod(v as Period)}
               options={PERIODS.map(p => [p.id, p.label])}
               groups={[['Måned', monthsWithData(model.activities).map(m => [m.id, m.label])]]}
             />
+            <span className="hidden h-6 w-px bg-slate-200 sm:block" />
             <Select
+              label="Type"
               value={actType}
               onChange={v => setActType(v as ActType)}
               options={[['alle', 'Kamper og treninger'], ['trening', 'Kun treninger'], ['kamp', 'Kun kamper'], ['ekstra', 'Kun ekstratreninger (Early Bird)']]}
             />
-            <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 shadow-sm" title="Hvis av: oppmøte % = ja / (ja + nei)">
-              <input type="checkbox" checked={noAnswerIsAbsent} onChange={e => setNoAnswerIsAbsent(e.target.checked)} className="accent-navy" />
-              «Ikke svart» teller som fravær
-            </label>
           </div>
         </div>
 
@@ -429,13 +437,10 @@ function Landing(props: {
 
 function InfoButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label="Om appen"
-      title="Om appen – hvordan tallene regnes ut"
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 font-serif text-base font-bold italic hover:bg-white/25"
-    >
-      i
+    <button onClick={onClick} aria-label="Om appen" title="Om appen – hvordan tallene regnes ut" className={`${GHOST} w-8 justify-center px-0`}>
+      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+      </svg>
     </button>
   )
 }
@@ -460,35 +465,42 @@ function InfoModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function TeamButton({ active, onClick, cls, children }: { active: boolean; onClick: () => void; cls: string; children: ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold transition ${cls} ${active ? 'outline-2 outline-offset-2 outline-white' : 'opacity-55 hover:opacity-80'}`}
-    >
-      {children}
-    </button>
-  )
-}
+// Felles stil for knapper i toppfeltet
+const GHOST = 'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold whitespace-nowrap ring-1 ring-white/20 transition hover:bg-white/10'
+const SEGMENT = 'flex shrink-0 gap-0.5 rounded-lg bg-white/5 p-0.5 ring-1 ring-white/10'
+const segItem = (active: boolean) =>
+  `inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold whitespace-nowrap transition ${active ? 'bg-white text-navy shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white'}`
 
-function Select({ value, onChange, options, groups = [] }: {
+function Select({ label, value, onChange, options, groups = [] }: {
+  label: string
   value: string
   onChange: (v: string) => void
   options: [string, string][]
   groups?: [string, [string, string][]][]
 }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} className="w-full min-w-0 rounded-lg bg-white px-3 py-2 shadow-sm sm:w-auto">
-      {options.map(([v, l]) => (
-        <option key={v} value={v}>{l}</option>
-      ))}
-      {groups.filter(([, opts]) => opts.length).map(([label, opts]) => (
-        <optgroup key={label} label={label}>
-          {opts.map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <label className="relative flex min-w-0 flex-1 items-center sm:flex-none">
+      <span className="sr-only">{label}</span>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg bg-transparent py-2 pr-8 pl-3 font-medium text-slate-700 hover:bg-slate-100 focus:ring-2 focus:ring-navy/30 focus:outline-none"
+      >
+        {options.map(([v, l]) => (
+          <option key={v} value={v}>{l}</option>
+        ))}
+        {groups.filter(([, opts]) => opts.length).map(([g, opts]) => (
+          <optgroup key={g} label={g}>
+            {opts.map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <svg className="pointer-events-none absolute right-2.5 h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+      </svg>
+    </label>
   )
 }
+

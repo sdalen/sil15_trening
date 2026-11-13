@@ -38,7 +38,7 @@ export default function InfoView() {
         <ul className="list-disc space-y-1 pl-5">
           <li><b>Ja</b> – påmeldt.</li>
           <li><b>Avslått</b> – meldt av.</li>
-          <li><b>Ikke svart</b> – invitert, men ikke svart. Teller som fravær så lenge «Ikke svart teller som fravær» er på.</li>
+          <li><b>Ikke svart</b> – invitert, men ikke svart. Teller som fravær.</li>
           <li><b>Godkjent</b> – avslått med godkjent grunn (se under).</li>
           <li>Tom – ikke invitert, teller ikke.</li>
         </ul>
