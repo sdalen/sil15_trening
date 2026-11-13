@@ -308,9 +308,9 @@ export const APPROVED_REASON = /fotball|futsal|hockey|syk/i
  */
 export const HOCKEY_SEASON_START = '2026-10-01'
 
-/** Godkjent grunn for avslag på en hockeyaktivitet: syk alltid, jobb for støtteapparat, fotball/futsal bare før hockeysesongen */
+/** Godkjent grunn for avslag på en hockeyaktivitet: syk og begravelse alltid, jobb for støtteapparat, fotball/futsal bare før hockeysesongen */
 export function approvedReason(reason: string, date: string, staff = false) {
-  if (/syk/i.test(reason)) return true
+  if (/syk|begravelse/i.test(reason)) return true
   if (staff && /jobb/i.test(reason)) return true
   return /fotball|futsal/i.test(reason) && date < HOCKEY_SEASON_START
 }
