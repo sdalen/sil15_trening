@@ -42,7 +42,8 @@ export default function App() {
   const [group, setGroup] = useState<Group>(() => store.get('group', 'spillere'))
   const [team, setTeam] = useState<TeamFilter>(() => {
     const t = store.get<string>('team', 'alle')
-    return t === 'alle' || t === 'uten' || teams.some(x => x.id === t) ? (t as TeamFilter) : 'alle'
+    // «uten» (Felles) finnes ikke lenger som knapp – de ligger under Alle
+    return teams.some(x => x.id === t) ? (t as TeamFilter) : 'alle'
   })
   const [period, setPeriod] = useState<Period>(() => {
     const p = store.get<string>('period', 'host')
@@ -246,7 +247,7 @@ export default function App() {
           </div>
 
           <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="relative flex-1">
+            <div className="relative w-full md:max-w-md lg:max-w-lg">
               <svg className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/45 peer-focus:text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a.75.75 0 11-1.06 1.06l-3.08-3.08A7 7 0 012 9z" clipRule="evenodd" />
               </svg>
@@ -258,7 +259,7 @@ export default function App() {
                 className="h-9 w-full rounded-lg bg-white/10 pr-3 pl-9 text-sm text-white ring-1 ring-white/10 transition placeholder:text-white/45 hover:bg-white/15 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-sh-yellow/60 focus:outline-none focus:placeholder:text-slate-400"
               />
             </div>
-            <div className="flex shrink-0 gap-2 overflow-x-auto">
+            <div className="flex shrink-0 gap-2 overflow-x-auto md:ml-auto">
               <div className={SEGMENT} role="radiogroup" aria-label="Vis spillere eller støtteapparat">
                 {(['spillere', 'stab'] as const).map(g => (
                   <button
@@ -268,7 +269,7 @@ export default function App() {
                     onClick={() => { setGroup(g); setTeam('alle') }}
                     className={segItem(group === g)}
                   >
-                    {g === 'spillere' ? 'Spillere' : 'Støtte'}
+                    {g === 'spillere' ? 'Spillere' : 'Ledere'}
                   </button>
                 ))}
               </div>
@@ -280,9 +281,6 @@ export default function App() {
                     {t.short}
                   </button>
                 ))}
-                {group === 'stab' && (
-                  <button onClick={() => setTeam('uten')} className={segItem(ctx.team === 'uten')}>Felles</button>
-                )}
               </nav>
             </div>
           </div>
@@ -298,7 +296,7 @@ export default function App() {
                 onClick={() => setTab(t.id)}
                 className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold whitespace-nowrap transition sm:px-3 ${tab === t.id ? 'bg-white text-navy shadow' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                {t.label}
+                {t.id === 'spillere' && group === 'stab' ? 'Ledere' : t.label}
               </button>
             ))}
           </div>
