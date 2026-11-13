@@ -148,11 +148,11 @@ function ActRow({ a, p }: { a: Activity; p: Person }) {
       </span>
       {p.corrected[a.idx] && <span title={p.corrected[a.idx]} className="cursor-help text-xs text-slate-400">✎</span>}
       {p.reasons[a.idx] && (
-        <span className={`max-w-32 truncate text-xs ${isApproved(p, a.idx) ? 'font-semibold text-sky-700' : 'text-slate-500'}`} title={p.reasons[a.idx]}>
+        <span className={`max-w-32 truncate text-xs ${isApproved(p, a) ? 'font-semibold text-sky-700' : 'text-slate-500'}`} title={p.reasons[a.idx]}>
           {p.reasons[a.idx]}
         </span>
       )}
-      {isApproved(p, a.idx) ? (
+      {isApproved(p, a) ? (
         <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">Godkjent</span>
       ) : (
         <StatusChip s={p.statuses[a.idx]} />

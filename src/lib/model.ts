@@ -299,9 +299,18 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
 
 // ---------- statistikk ----------
 
-/** Avslag med godkjent grunn (annen idrett eller sykdom) – teller ikke som fravær */
+/** Avslag med godkjent grunn (annen idrett eller sykdom) – brukes av Furnes-siden */
 export const APPROVED_REASON = /fotball|futsal|hockey|syk/i
-export const isApproved = (p: Person, idx: number) => p.statuses[idx] === 'nei' && APPROVED_REASON.test(p.reasons[idx] ?? '')
+
+/** Fra denne datoen er det hockeysesong – fotball/futsal er ikke lenger godkjent grunn for hockeyfravær */
+export const HOCKEY_SEASON_START = '2026-11-01'
+
+/** Godkjent grunn for avslag på en hockeyaktivitet: syk alltid, fotball/futsal bare før hockeysesongen */
+export function approvedReason(reason: string, date: string) {
+  if (/syk/i.test(reason)) return true
+  return /fotball|futsal/i.test(reason) && date < HOCKEY_SEASON_START
+}
+export const isApproved = (p: Person, a: Pick<Activity, 'idx' | 'date'>) => p.statuses[a.idx] === 'nei' && approvedReason(p.reasons[a.idx] ?? '', a.date)
 
 export interface Stats {
   ja: number
@@ -321,7 +330,7 @@ export function personStats(p: Person, acts: Activity[], noAnswerIsAbsent: boole
   for (const a of acts) {
     const s = p.statuses[a.idx]
     if (s === 'ja') ja++
-    else if (isApproved(p, a.idx)) godkjent++
+    else if (isApproved(p, a)) godkjent++
     else if (s === 'nei') nei++
     else if (s === 'ikke-svart') ikkeSvart++
   }
@@ -331,7 +340,7 @@ export function personStats(p: Person, acts: Activity[], noAnswerIsAbsent: boole
   let streak = 0
   for (let i = acts.length - 1; i >= 0; i--) {
     const s = p.statuses[acts[i].idx]
-    if (s === null || isApproved(p, acts[i].idx)) continue
+    if (s === null || isApproved(p, acts[i])) continue
     if (s !== 'ja') break
     streak++
   }

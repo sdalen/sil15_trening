@@ -15,17 +15,19 @@ import MatrixView from './components/MatrixView'
 import PersonDrawer from './components/PersonDrawer'
 import KamperView from './components/KamperView'
 import FurnesView from './components/FurnesView'
+import StatsView from './components/StatsView'
 
 // Lagoppsettet ligger kryptert per person – låses opp med navnene i CSV-ene som lastes opp
 const SEALED = sealedRoster as SealedEntry[]
 
-type Tab = 'oversikt' | 'spillere' | 'kamper' | 'aktiviteter' | 'matrise'
+type Tab = 'oversikt' | 'spillere' | 'kamper' | 'aktiviteter' | 'matrise' | 'statistikk'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'oversikt', label: 'Oversikt' },
   { id: 'spillere', label: 'Spillere' },
   { id: 'kamper', label: 'Kamper' },
   { id: 'aktiviteter', label: 'Aktiviteter' },
   { id: 'matrise', label: 'Matrise' },
+  { id: 'statistikk', label: 'Statistikk' },
 ]
 
 export default function App() {
@@ -299,6 +301,7 @@ export default function App() {
         )}
         {tab === 'aktiviteter' && <ActivitiesView ctx={ctx} />}
         {tab === 'matrise' && <MatrixView ctx={ctx} />}
+        {tab === 'statistikk' && <StatsView ctx={ctx} />}
 
         <footer className="pt-4 pb-8 text-center text-xs text-slate-400">
           Kilde: Rubic oppmøteeksport + lagoppsett/serieoppsett U12 2026–2027. Statistikk regnes kun for passerte aktiviteter.
