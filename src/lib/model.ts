@@ -204,7 +204,8 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
 
   const activities: Activity[] = base.cols.map((c, i) => {
     const [cat, ...rest] = c.label.split(' · ')
-    const a = makeActivity(i, c.date, c.time, cat === 'Ekstra' ? 'ekstra' : 'trening', main.name)
+    // Kategori fra uttrekket: «Kamp» = kamp (som en kampeksport), «Ekstra» = frivillig ekstratrening
+    const a = makeActivity(i, c.date, c.time, cat === 'Ekstra' ? 'ekstra' : cat === 'Kamp' ? 'kamp' : 'trening', main.name)
     if (rest.length) a.title = rest.join(' · ')
     return a
   })
@@ -297,6 +298,11 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
     const count = new Map<TeamId, number>()
     for (const p of people) if (p.teamId && p.statuses[a.idx]) count.set(p.teamId, (count.get(p.teamId) ?? 0) + 1)
     a.team = [...count].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null
+  }
+  // Samme kamp både i hovedfila og som egen kampeksport (samme tid og lag) – vis den bare én gang
+  for (const a of activities) {
+    if (a.kind !== 'kamp' || a.source === main.name || !a.hasData) continue
+    if (activities.some(b => b.kind === 'kamp' && b.source === main.name && b.hasData && b.date === a.date && b.time === a.time && b.team === a.team)) a.hasData = false
   }
   // Tomme kolonner i hovedeksporten som dekkes av en kampeksport
   for (const a of activities) {

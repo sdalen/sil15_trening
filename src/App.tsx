@@ -213,21 +213,22 @@ export default function App() {
       <header className="sticky top-0 z-20 bg-navy text-white shadow-lg">
         <div className="mx-auto max-w-6xl px-4 pt-3 pb-3">
           <div className="flex items-center gap-3">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="h-11 w-auto drop-shadow" />
-            <div className="min-w-0">
-              <h1 className="text-lg font-black leading-tight tracking-wide">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="h-9 w-auto shrink-0 drop-shadow sm:h-11" />
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-lg font-black leading-tight tracking-wide">
                 U12 <span className="text-sh-yellow">Oppmøte</span>
               </h1>
               <p className="truncate text-xs text-white/70">
                 {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i stab · {model.activities.length} aktiviteter
               </p>
             </div>
-            <label className="ml-auto cursor-pointer rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-white/25">
-              Legg til CSV
+            <label className="shrink-0 cursor-pointer rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-white/25" title="Legg til CSV">
+              <span className="sm:hidden">+ CSV</span>
+              <span className="hidden sm:inline">Legg til CSV</span>
               <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
             </label>
             <InfoButton onClick={() => setShowInfo(true)} />
-            <button onClick={() => setFurnes(true)} className="rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-emerald-600">
+            <button onClick={() => setFurnes(true)} className="shrink-0 rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:bg-emerald-600">
               Furnes
             </button>
             <button onClick={clearData} className="hidden rounded-full px-2 py-1.5 text-xs text-white/70 hover:text-white sm:block" title="Fjern opplastede filer fra denne nettleseren">
@@ -273,19 +274,19 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-200 p-1">
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-200 p-1 sm:flex">
             {TABS.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition lg:flex-none ${tab === t.id ? 'bg-white text-navy shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex-1 rounded-lg px-2 py-2 text-sm font-semibold whitespace-nowrap transition sm:px-3 ${tab === t.id ? 'bg-white text-navy shadow' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 {t.label}
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm lg:ml-auto">
+          <div className="grid grid-cols-2 gap-2 text-sm sm:flex sm:flex-wrap sm:items-center md:justify-end">
             <Select
               value={period}
               onChange={v => setPeriod(v as Period)}
@@ -297,7 +298,7 @@ export default function App() {
               onChange={v => setActType(v as ActType)}
               options={[['alle', 'Kamper og treninger'], ['trening', 'Kun treninger'], ['kamp', 'Kun kamper'], ['ekstra', 'Kun ekstratreninger (Early Bird)']]}
             />
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 shadow-sm" title="Hvis av: oppmøte % = ja / (ja + nei)">
+            <label className="col-span-2 flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 shadow-sm" title="Hvis av: oppmøte % = ja / (ja + nei)">
               <input type="checkbox" checked={noAnswerIsAbsent} onChange={e => setNoAnswerIsAbsent(e.target.checked)} className="accent-navy" />
               «Ikke svart» teller som fravær
             </label>
@@ -477,7 +478,7 @@ function Select({ value, onChange, options, groups = [] }: {
   groups?: [string, [string, string][]][]
 }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} className="rounded-lg bg-white px-3 py-2 shadow-sm">
+    <select value={value} onChange={e => onChange(e.target.value)} className="w-full min-w-0 rounded-lg bg-white px-3 py-2 shadow-sm sm:w-auto">
       {options.map(([v, l]) => (
         <option key={v} value={v}>{l}</option>
       ))}

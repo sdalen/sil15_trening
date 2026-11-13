@@ -32,7 +32,7 @@ export default function KamperView({ ctx, uploaded, onAdd, onRemove }: Props) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="Kamper" value={kamper.length} sub="kampeksporter lastet inn" />
+        <Kpi label="Kamper" value={kamper.length} sub="fra uttrekk og kampeksporter" />
         <Kpi label="Snitt kampoppmøte" value={<Pct value={avg} />} sub={`blant ${rows.length} innkalte`} />
         <Kpi label="Lag med kamper" value={new Set(kamper.map(a => a.team)).size} sub="av 4" />
         <div className="flex flex-col justify-center gap-2 rounded-2xl bg-white p-4 shadow-sm">

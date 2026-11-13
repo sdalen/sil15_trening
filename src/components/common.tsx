@@ -47,12 +47,13 @@ export function Pct({ value, className = '' }: { value: number | null; className
 }
 
 /** Oppmøte («riktig» prosent), med prosent der godkjent fravær ikke teller i parentes */
-export function PctStats({ s, className = '' }: { s: Pick<Stats, 'pct' | 'pctGodkjent' | 'godkjent'>; className?: string }) {
+export function PctStats({ s, className = '', stack }: { s: Pick<Stats, 'pct' | 'pctGodkjent' | 'godkjent'>; className?: string; stack?: boolean }) {
+  // stack: parentesen under hovedprosenten på smale skjermer
   return (
-    <span className={`whitespace-nowrap ${className}`}>
+    <span className={`whitespace-nowrap ${stack ? 'flex flex-col items-end sm:inline' : ''} ${className}`}>
       <Pct value={s.pct} />
       {s.godkjent > 0 && (
-        <span className="ml-1 text-xs font-semibold text-sky-700 tabular-nums" title="Når godkjent fravær ikke telles som fravær">({pctText(s.pctGodkjent)})</span>
+        <span className={`text-xs font-semibold text-sky-700 tabular-nums ${stack ? 'sm:ml-1' : 'ml-1'}`} title="Når godkjent fravær ikke telles som fravær">({pctText(s.pctGodkjent)})</span>
       )}
     </span>
   )
