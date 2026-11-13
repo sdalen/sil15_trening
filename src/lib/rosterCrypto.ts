@@ -20,6 +20,8 @@ export interface RosterEntry {
   staff?: { role: StaffRole; team: TeamId | null }
   /** Manuelle rettelser – gjelder bare treninger som står som «ikke svart» */
   corrections?: { from?: string; to?: string; status: 'ja' | 'nei' | null; note: string }[]
+  /** Har sluttet – vises ikke noe sted i appen */
+  removed?: boolean
 }
 
 /** Én kryptert person: id = oppslagsnøkkel avledet fra navnet, iv + ct = AES-GCM (base64) */

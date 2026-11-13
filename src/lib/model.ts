@@ -259,7 +259,8 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
       if (r.notes[m.col]) p.reasons[m.idx] = r.notes[m.col]
     }
   }
-  const people = [...byId.values()]
+  // Personer som har sluttet (markert i lagoppsettet) vises ikke noe sted
+  const people = [...byId.values()].filter(p => !roster.get(p.id)?.removed)
 
   // Manuelle rettelser (ligger kryptert i lagoppsettet) – kun treninger som står som «ikke svart»
   for (const [k, e] of roster) for (const c of e.corrections ?? []) {
