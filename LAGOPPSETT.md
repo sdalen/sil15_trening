@@ -37,7 +37,7 @@ Rekkefølgen på kolonnene spiller ingen rolle. Spillere uten lag hoppes over. U
 
 **Slik gjør du:**
 
-1. Kjør `npm run export_all`. Ved siden av oppmøtefila lagres `lagoppsett_mal_kl<tid>.csv` med navn, lag og rolle fra Rubic.
+1. Kjør `npm run export_all`. Ved siden av oppmøtefila lagres `lagoppsett_mal_kl<tid>.csv` med navn, lag og rolle fra Rubic. Spillere som ennå ikke er satt opp på noen lagkamp, har ikke lag i Rubic. De står nederst med tom `Lag`, så du kan fylle inn laget eller slette raden. Terminalen viser hvem det gjelder.
 2. Åpne malen i Excel eller Numbers, fyll inn `Nr`, og lagre som CSV.
 3. Last opp fila i appen med samme knapp som oppmøte-CSV-en. Appen kjenner den igjen på kolonnene. Haken for salt byttes ut med «Lagoppsett: <fil>».
 4. Del fila med de andre trenerne på samme måte som oppmøte-CSV-en. Den inneholder navn, så den skal ikke i git.

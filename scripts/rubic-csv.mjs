@@ -392,13 +392,19 @@ console.error(`Skrev ${rows.length} personer × ${keep.length} aktiviteter til $
 if (withTeams) {
   const simpleRole = r => (/hovedtrener/i.test(r) ? 'Hovedtrener' : /trener/i.test(r) ? 'Trener' : /lagleder/i.test(r) ? 'Lagleder' : /materialforvalter/i.test(r) ? 'Materialforvalter' : '')
   const order = { Spiller: 0, Hovedtrener: 1, Trener: 2, Lagleder: 3, Materialforvalter: 4 }
+  // Spillere uten lag i Rubic (ikke invitert til noen lagkamp ennå) tas med når de er invitert til minst
+  // en firedel av hovedgruppas aktiviteter – med tom Lag-kolonne nederst, så laget kan fylles inn
+  const mainIdx = keep.map((a, i) => (groups.some(g => g.id === a.organizationID && g.type === 'oppmøte') ? i : -1)).filter(i => i >= 0)
+  const regular = p => mainIdx.length > 0 && mainIdx.filter(i => p.codes[i]).length >= mainIdx.length / 4
   const lines = [...people.values()]
-    .map(p => ({ name: p.name, team: p.team, role: simpleRole(p.role) || (p.team ? 'Spiller' : '') }))
+    .map(p => ({ name: p.name, team: p.team, role: simpleRole(p.role) || (p.team || regular(p) ? 'Spiller' : '') }))
     .filter(p => p.role)
-    .sort((x, y) => order[x.role] - order[y.role] || x.team.localeCompare(y.team, 'nb') || x.name.localeCompare(y.name, 'nb'))
+    .sort((x, y) => Number(!x.team && x.role === 'Spiller') - Number(!y.team && y.role === 'Spiller') || order[x.role] - order[y.role] || x.team.localeCompare(y.team, 'nb') || x.name.localeCompare(y.name, 'nb'))
+  const noTeam = lines.filter(p => !p.team && p.role === 'Spiller')
   const mal = join(dirname(out), `lagoppsett_mal_kl${stamp}.csv`)
   writeFileSync(mal, [['Navn', 'Lag', 'Nr', 'Rolle'], ...lines.map(p => [p.name, p.team, '', p.role])].map(r => r.map(cell).join(',')).join('\n') + '\n')
   console.error(`Skrev mal for lagoppsett (${lines.length} personer, fyll inn Nr) til ${mal}`)
+  if (noTeam.length) console.error(`  ${noTeam.length} spillere uten lag i Rubic står nederst – fyll inn Lag (eller slett raden): ${noTeam.map(p => p.name.split(' ')[0]).join(', ')}`)
 }
 
 function die(msg) {

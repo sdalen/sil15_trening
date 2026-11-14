@@ -40,7 +40,7 @@ export default function InfoView() {
           <li><b>Avslått</b> – meldt av.</li>
           <li><b>Ikke svart</b> – invitert, men ikke svart. Teller som fravær.</li>
           <li><b>Godkjent</b> – avslått med godkjent grunn (se under).</li>
-          <li>Tom – ikke invitert, teller ikke.</li>
+          <li>Tom – ikke invitert. På <b>treninger</b> teller det som fravær for spillere (f.eks. før en ny spiller begynte), så alle har like mange mulige treninger. På kamper og ekstratreninger teller det ikke.</li>
         </ul>
       </Section>
 

@@ -72,9 +72,9 @@ export function ExtraNote({ s, label }: { s: Stats | undefined; label: string })
   return <span className="ml-1 text-violet-700">({s.ja} av {s.invited} {label})</span>
 }
 
-/** Stablet stolpe ja / nei / ikke svart */
-export function SplitBar({ ja, nei, ikkeSvart, className = 'h-2' }: { ja: number; nei: number; ikkeSvart: number; className?: string }) {
-  const total = ja + nei + ikkeSvart
+/** Stablet stolpe ja / nei / ikke svart. ikkeInvitert = resten av stolpen (grå): treninger spilleren ikke var invitert til. */
+export function SplitBar({ ja, nei, ikkeSvart, ikkeInvitert = 0, className = 'h-2' }: { ja: number; nei: number; ikkeSvart: number; ikkeInvitert?: number; className?: string }) {
+  const total = ja + nei + ikkeSvart + ikkeInvitert
   if (!total) return <div className={`rounded-full bg-slate-100 ${className}`} />
   return (
     <div className={`flex gap-px overflow-hidden rounded-full bg-slate-100 ${className}`}>
@@ -86,7 +86,7 @@ export function SplitBar({ ja, nei, ikkeSvart, className = 'h-2' }: { ja: number
 }
 
 export function StatsBar({ s }: { s: Stats }) {
-  return <SplitBar ja={s.ja} nei={s.nei} ikkeSvart={s.ikkeSvart} />
+  return <SplitBar ja={s.ja} nei={s.nei} ikkeSvart={s.ikkeSvart} ikkeInvitert={s.ikkeInvitert} />
 }
 
 export function Legend() {

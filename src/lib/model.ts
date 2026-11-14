@@ -499,6 +499,11 @@ export interface Stats {
   /** Oppmøte når godkjent fravær ikke telles som fravær */
   pctGodkjent: number | null
   ikkeSvart: number
+  /**
+   * Treninger spilleren ikke var invitert til (f.eks. før spilleren begynte). Teller som fravær, så alle
+   * spillere har like mange mulige treninger. Med i invited og pct. Gjelder bare spillere og treninger.
+   */
+  ikkeInvitert: number
   invited: number
   pct: number | null
   /** Sammenhengende «ja» bakover fra siste aktivitet */
@@ -508,16 +513,21 @@ export interface Stats {
 }
 
 export function personStats(p: Person, acts: Activity[], noAnswerIsAbsent: boolean): Stats {
-  let ja = 0, nei = 0, ikkeSvart = 0, godkjent = 0
+  let ja = 0, nei = 0, ikkeSvart = 0, godkjent = 0, ikkeInvitert = 0
   for (const a of acts) {
     const s = p.statuses[a.idx]
+    if (s === null) {
+      // Alle spillere skal ha like mange mulige treninger – ikke invitert (f.eks. ny spiller) = fravær
+      if (p.kind === 'spiller' && a.kind === 'trening') ikkeInvitert++
+      continue
+    }
     if (s === 'ja') ja++
     else if (isApproved(p, a)) godkjent++
     else if (s === 'nei') nei++
     else if (s === 'ikke-svart') ikkeSvart++
   }
   // «Riktig» prosent: godkjent fravær er også fravær. pctGodkjent: godkjent fravær holdes utenfor.
-  const denom = (noAnswerIsAbsent ? ja + nei + ikkeSvart : ja + nei) + godkjent
+  const denom = (noAnswerIsAbsent ? ja + nei + ikkeSvart : ja + nei) + godkjent + ikkeInvitert
   // Sammenhengende «ja» bakover fra siste aktivitet
   let streak = 0
   for (let i = acts.length - 1; i >= 0; i--) {
@@ -534,7 +544,7 @@ export function personStats(p: Person, acts: Activity[], noAnswerIsAbsent: boole
     run = s === 'ja' ? run + 1 : 0
     maxStreak = Math.max(maxStreak, run)
   }
-  return { ja, nei, godkjent, ikkeSvart, invited: ja + nei + ikkeSvart + godkjent, pct: denom ? ja / denom : null, pctGodkjent: denom - godkjent ? ja / (denom - godkjent) : null, streak, maxStreak }
+  return { ja, nei, godkjent, ikkeSvart, ikkeInvitert, invited: ja + nei + ikkeSvart + godkjent + ikkeInvitert, pct: denom ? ja / denom : null, pctGodkjent: denom - godkjent ? ja / (denom - godkjent) : null, streak, maxStreak }
 }
 
 export function countStatuses(people: Person[], a: Activity) {
