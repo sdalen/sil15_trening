@@ -217,25 +217,32 @@ export default function App() {
     setExtraMatches(m => [...m.filter(x => !added.some(a => a.name === x.name)), ...added])
   }
 
-  async function onUpload(file: File) {
-    const text = await file.text()
-    try {
-      // Lagoppsett (Navn,Lag,Nr,Rolle) i stedet for oppmøte
-      if (isRosterCsv(text)) {
-        parseRosterCsv(text)
-        setRosterFile({ text, name: file.name })
-        return
+  /**
+   * Én eller flere filer: lagoppsett (Navn,Lag,Nr,Rolle) og/eller oppmøteeksporter, i hvilken som helst rekkefølge.
+   * Lagoppsettet leses først, så appen ikke åpner uten det når begge velges samtidig.
+   */
+  async function onUpload(list: FileList | File[]) {
+    const read = await Promise.all(Array.from(list).map(async f => ({ name: f.name, text: await f.text() })))
+    const isRoster = (t: string) => {
+      try {
+        return isRosterCsv(t)
+      } catch {
+        return false
       }
-      parseExport(text)
-      if (!csv) {
-        setCsv({ text, name: file.name, files: [file.name] })
-      } else {
+    }
+    for (const { name, text } of [...read.filter(f => isRoster(f.text)), ...read.filter(f => !isRoster(f.text))]) {
+      try {
+        if (isRoster(text)) {
+          parseRosterCsv(text)
+          setRosterFile({ text, name })
+          continue
+        }
+        parseExport(text)
         // Fyll på: nye aktiviteter legges til, eksisterende oppdateres fra den nye fila
-        const files = [...(csv.files ?? [csv.name]), file.name]
-        setCsv({ text: mergeExports(csv.text, text), name: file.name, files })
+        setCsv(prev => (prev ? { text: mergeExports(prev.text, text), name, files: [...(prev.files ?? [prev.name]), name] } : { text, name, files: [name] }))
+      } catch (e) {
+        alert(`Kunne ikke lese ${name}: ${(e as Error).message}`)
       }
-    } catch (e) {
-      alert(`Kunne ikke lese ${file.name}: ${(e as Error).message}`)
     }
   }
 
@@ -297,7 +304,7 @@ export default function App() {
             <label className={GHOST} title="Legg til CSV">
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" /></svg>
               <span>CSV</span>
-              <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
+              <input type="file" accept=".csv,text/csv" className="hidden" multiple onChange={e => { if (e.target.files?.length) onUpload(e.target.files); e.target.value = '' }} />
             </label>
             {anonButton}
             <InfoButton onClick={() => setShowInfo(true)} />
@@ -305,6 +312,12 @@ export default function App() {
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Furnes
             </button>
+            {!rosterFile && (
+              <label className="hidden shrink-0 cursor-pointer text-[11px] text-white/45 hover:text-white sm:block" title="Last opp lagoppsett (Navn, Lag, Nr, Rolle) for draktnummer">
+                ＋ Lagoppsett
+                <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => { if (e.target.files?.length) onUpload(e.target.files); e.target.value = '' }} />
+              </label>
+            )}
             <button
               onClick={() => (rosterFile ? confirm(`Fjerne lagoppsettet ${rosterFile.name} fra denne nettleseren?`) && setRosterFile(null) : setUseSalt(s => !s))}
               className="hidden shrink-0 text-[11px] text-white/45 hover:text-white sm:block"
@@ -451,7 +464,7 @@ function Landing(props: {
   loading: boolean
   error?: string
   onSalt: (s: string) => void
-  onUpload: (f: File) => void
+  onUpload: (f: FileList | File[]) => void
   onClear: () => void
   onFurnes: () => void
   onInfo: () => void
@@ -476,11 +489,11 @@ function Landing(props: {
             <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">1 · CSV fra Rubic (og ev. lagoppsett)</div>
             <label className="inline-block cursor-pointer rounded-full bg-sh-yellow px-4 py-2 text-sm font-bold text-navy shadow hover:brightness-105">
               {csvName ? 'Legg til fil' : 'Velg fil'}
-              <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
+              <input type="file" accept=".csv,text/csv" className="hidden" multiple onChange={e => { if (e.target.files?.length) onUpload(e.target.files); e.target.value = '' }} />
             </label>
             {csvName && <span className="ml-3 text-sm text-white/80">✓ {csvName}</span>}
             {rosterName && <div className="mt-2 text-sm text-white/80">✓ Lagoppsett: {rosterName}</div>}
-            <p className="mt-2 text-xs text-white/55">Lagoppsett er en CSV med kolonnene Navn, Lag, Nr, Rolle – lastes opp med samme knapp.</p>
+            <p className="mt-2 text-xs text-white/55">Du kan velge flere filer samtidig, f.eks. oppmøte og lagoppsett.</p>
           </li>
           {rosterName ? (
             <li className="rounded-xl bg-white/10 p-3 text-sm text-white/80">
@@ -488,6 +501,14 @@ function Landing(props: {
               Lag, nummer og roller hentes fra {rosterName} – saltet trengs ikke.
             </li>
           ) : <>
+          <li className="rounded-xl bg-white/10 p-3">
+            <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">2 · Lagoppsett (valgfritt)</div>
+            <label className="inline-block cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white ring-1 ring-white/25 hover:bg-white/25">
+              Velg lagoppsett
+              <input type="file" accept=".csv,text/csv" className="hidden" onChange={e => { if (e.target.files?.length) onUpload(e.target.files); e.target.value = '' }} />
+            </label>
+            <p className="mt-2 text-xs text-white/55">CSV med Navn, Lag, Nr, Rolle – gir draktnummer. Velg det før oppmøtefila, eller begge samtidig i steg 1.</p>
+          </li>
           <li className="rounded-xl bg-white/10 p-3">
             <label className="flex cursor-pointer items-start gap-3">
               <input
@@ -497,7 +518,7 @@ function Landing(props: {
                 className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-sh-yellow"
               />
               <span>
-                <span className="block text-xs font-bold tracking-wider text-white/60 uppercase">2 · Bruk salt</span>
+                <span className="block text-xs font-bold tracking-wider text-white/60 uppercase">3 · Eller bruk salt</span>
                 <span className="block text-sm text-white/80">
                   {useSalt
                     ? 'Kryptert lagoppsett med draktnummer, kallenavn og rettelser. Krever saltet fra trenerne.'
@@ -512,7 +533,7 @@ function Landing(props: {
             )}
           </li>
           {useSalt && <li className="rounded-xl bg-white/10 p-3">
-            <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">3 · Salt</div>
+            <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">4 · Salt</div>
             {needSalt ? (
               <form
                 className="flex gap-2"
