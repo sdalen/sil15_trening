@@ -36,6 +36,8 @@ export default function App() {
   const [csv, setCsv] = useState<{ text: string; name: string; files?: string[] } | null>(() => store.get('csv', null))
   // Hemmelig salt for lagoppsettet – skrives inn av brukeren, lagres bare i denne nettleseren
   const [salt, setSalt] = useState<string>(() => store.get('rosterSalt', ''))
+  // Med salt: det krypterte lagoppsettet (draktnummer, kallenavn, rettelser). Uten: bare Lag/Rolle fra CSV-en.
+  const [useSalt, setUseSalt] = useState<boolean>(() => store.get('useSalt', !!store.get('rosterSalt', '')))
   const [extraMatches, setExtraMatches] = useState<CsvFile[]>(() => store.get('matchCsvs', []))
   const [overrides, setOverrides] = useState<Overrides>(() => store.get('overrides', {}))
   const [tab, setTab] = useState<Tab>(() => store.get('tab', 'oversikt'))
@@ -74,6 +76,7 @@ export default function App() {
 
   useEffect(() => store.set('csv', csv ?? undefined), [csv])
   useEffect(() => store.set('rosterSalt', salt || undefined), [salt])
+  useEffect(() => store.set('useSalt', useSalt), [useSalt])
   useEffect(() => store.set('matchCsvs', extraMatches), [extraMatches])
   useEffect(() => store.set('overrides', overrides), [overrides])
   useEffect(() => store.set('tab', tab), [tab])
@@ -89,7 +92,7 @@ export default function App() {
   // Lås opp lagoppsettet for navnene i filene. Forrige resultat brukes mens nye navn låses opp.
   const [unlocked, setUnlocked] = useState<{ salt: string; roster: Map<string, RosterEntry> } | null>(null)
   useEffect(() => {
-    if (!csv || !salt) return
+    if (!csv || !salt || !useSalt) return
     let names: string[]
     try {
       names = namesIn([csv, ...extraMatches])
@@ -101,8 +104,8 @@ export default function App() {
     return () => {
       stop = true
     }
-  }, [csv, extraMatches, salt])
-  const sealed = salt && unlocked?.salt === salt ? unlocked.roster : null
+  }, [csv, extraMatches, salt, useSalt])
+  const sealed = useSalt && salt && unlocked?.salt === salt ? unlocked.roster : null
   // Lag og roller rett fra CSV-en (npm run export_all) – da trengs ikke saltet
   const csvRoster = useMemo(() => {
     if (!csv) return new Map<string, RosterEntry>()
@@ -113,11 +116,14 @@ export default function App() {
     }
   }, [csv, extraMatches])
   const hasCsvRoster = csvRoster.size > 0
-  // Med salt: vent på opplåsingen. Uten salt: bare lagoppsettet fra CSV-en.
+  // Med salt: vent til riktig salt har låst opp lagoppsettet (Lag/Rolle fra CSV-en legges oppå).
+  // Uten salt: bare lagoppsettet fra CSV-en.
   const roster = useMemo(
-    () => (salt ? (sealed && sealed.size > 0 ? mergeRosters(csvRoster, sealed) : sealed && hasCsvRoster ? csvRoster : sealed) : hasCsvRoster ? csvRoster : null),
-    [salt, sealed, csvRoster, hasCsvRoster],
+    () => (useSalt ? (sealed && sealed.size > 0 ? mergeRosters(csvRoster, sealed) : null) : hasCsvRoster ? csvRoster : null),
+    [useSalt, sealed, csvRoster, hasCsvRoster],
   )
+  // Uten salt og fila mangler Lag-kolonnen (vanlig Rubic-eksport) – da kan ingen få lag
+  const noTeams = !!csv && !useSalt && !hasCsvRoster
   // Ingen treff i det hele tatt = saltet passer ikke (eller fila er fra et annet lag)
   const wrongSalt = !!sealed && sealed.size === 0
   // Personer i det krypterte lagoppsettet som ikke finnes i filene (bare relevant når saltet er brukt)
@@ -226,8 +232,10 @@ export default function App() {
         csvName={csv ? ((csv.files?.length ?? 1) > 1 ? `${csv.files!.length} filer` : csv.name) : null}
         salt={salt}
         wrongSalt={wrongSalt}
-        saltOptional={hasCsvRoster}
-        loading={!!csv && !!salt && !roster}
+        useSalt={useSalt}
+        onUseSalt={setUseSalt}
+        noTeams={noTeams}
+        loading={!!csv && useSalt && !!salt && !sealed}
         error={result.error}
         onSalt={setSalt}
         onUpload={onUpload}
@@ -263,6 +271,13 @@ export default function App() {
             <button onClick={() => setFurnes(true)} className={`${GHOST} text-emerald-200 ring-emerald-400/40 hover:bg-emerald-400/15`}>
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Furnes
+            </button>
+            <button
+              onClick={() => setUseSalt(s => !s)}
+              className="hidden shrink-0 text-[11px] text-white/45 hover:text-white sm:block"
+              title={useSalt ? 'Bytt til lag fra CSV-en (uten draktnummer og rettelser)' : 'Bytt til kryptert lagoppsett (draktnummer, kallenavn, rettelser)'}
+            >
+              {useSalt ? '🔒 Med salt' : '🔓 Uten salt'}
             </button>
             <button onClick={clearData} className="hidden shrink-0 text-[11px] text-white/45 hover:text-white sm:block" title="Fjern opplastede filer fra denne nettleseren">
               Fjern data
@@ -391,8 +406,11 @@ function Landing(props: {
   csvName: string | null
   salt: string
   wrongSalt: boolean
-  /** CSV-en har lag fra Rubic (npm run export_all) – saltet trengs ikke */
-  saltOptional: boolean
+  /** Haken «Bruk salt»: kryptert lagoppsett, eller bare Lag/Rolle fra CSV-en */
+  useSalt: boolean
+  onUseSalt: (v: boolean) => void
+  /** Uten salt, men fila har ikke Lag-kolonnen */
+  noTeams: boolean
   loading: boolean
   error?: string
   onSalt: (s: string) => void
@@ -401,7 +419,7 @@ function Landing(props: {
   onFurnes: () => void
   onInfo: () => void
 }) {
-  const { csvName, salt, wrongSalt, saltOptional, loading, error, onSalt, onUpload, onClear, onFurnes, onInfo } = props
+  const { csvName, salt, wrongSalt, useSalt, onUseSalt, noTeams, loading, error, onSalt, onUpload, onClear, onFurnes, onInfo } = props
   const [draft, setDraft] = useState('')
   const needSalt = !salt || wrongSalt
   return (
@@ -413,7 +431,7 @@ function Landing(props: {
           U12 <span className="text-sh-yellow">Oppmøte</span>
         </h1>
         <p className="text-sm text-white/80">
-          Last inn oppmøteeksporten fra Rubic (CSV) og skriv inn saltet du har fått av trenerne. Begge deler lagres bare i denne nettleseren – ingenting sendes noe sted.
+          Last inn oppmøteeksporten fra Rubic (CSV), og velg om du vil bruke saltet du har fått av trenerne. Alt lagres bare i denne nettleseren – ingenting sendes noe sted.
         </p>
 
         <ol className="space-y-3 text-left">
@@ -426,9 +444,30 @@ function Landing(props: {
             {csvName && <span className="ml-3 text-sm text-white/80">✓ {csvName}</span>}
           </li>
           <li className="rounded-xl bg-white/10 p-3">
-            <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">
-              2 · Salt {saltOptional ? '(valgfritt – fila har lag fra Rubic)' : '(ikke nødvendig for filer fra npm run export_all)'}
-            </div>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={useSalt}
+                onChange={e => onUseSalt(e.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-sh-yellow"
+              />
+              <span>
+                <span className="block text-xs font-bold tracking-wider text-white/60 uppercase">2 · Bruk salt</span>
+                <span className="block text-sm text-white/80">
+                  {useSalt
+                    ? 'Kryptert lagoppsett med draktnummer, kallenavn og rettelser. Krever saltet fra trenerne.'
+                    : 'Lag og roller hentes fra CSV-en (npm run export_all). Uten draktnummer og rettelser.'}
+                </span>
+              </span>
+            </label>
+            {noTeams && (
+              <p className="mt-2 text-sm text-rose-200">
+                Fila har ikke kolonnen «Lag». Bruk en fil fra npm run export_all, eller kryss av for salt.
+              </p>
+            )}
+          </li>
+          {useSalt && <li className="rounded-xl bg-white/10 p-3">
+            <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">3 · Salt</div>
             {needSalt ? (
               <form
                 className="flex gap-2"
@@ -452,7 +491,7 @@ function Landing(props: {
               <span className="text-sm text-white/80">✓ Lagret i nettleseren</span>
             )}
             {wrongSalt && <p className="mt-2 text-sm text-rose-200">Saltet passer ikke med fila – ingen personer kunne låses opp. Prøv igjen.</p>}
-          </li>
+          </li>}
         </ol>
 
         {loading && <p className="text-sm text-white/80">Låser opp lagoppsettet …</p>}
