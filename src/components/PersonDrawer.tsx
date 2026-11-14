@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { teams, tournaments, type TeamId } from '../data/sil15.js'
-import { colorTeam, isApproved, personIceMinutes, personStats, type Activity, type Person } from '../lib/model'
+import { colorTeam, isApproved, personIceMinutes, personStats, shortName, type Activity, type Person } from '../lib/model'
 import { hoursText, longDate, monthLabel, pctText, shortDate, THEME } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { ActLabel, Legend, NrBadge, Pct, ExtraNote, PctStats, SplitBar, StatusChip, Pii } from './common'
@@ -9,16 +9,29 @@ import { ActLabel, Legend, NrBadge, Pct, ExtraNote, PctStats, SplitBar, StatusCh
 interface Props {
   ctx: Ctx
   person: Person
+  /** Personene man kan bla mellom (forrige/neste), i rekkefølge */
+  order: Person[]
+  onNavigate: (id: string) => void
   onClose: () => void
   onSetTeam: (t: TeamId | 'none' | 'auto') => void
 }
 
-export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Props) {
+export default function PersonDrawer({ ctx, person: p, order, onNavigate, onClose, onSetTeam }: Props) {
+  const pos = order.findIndex(x => x.id === p.id)
+  const prev = pos > 0 ? order[pos - 1] : null
+  const next = pos >= 0 && pos < order.length - 1 ? order[pos + 1] : null
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      // Piltaster blar mellom personer (ikke når man står i et skjemafelt)
+      if (e.target instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return
+      if (e.key === 'ArrowLeft' && prev) onNavigate(prev.id)
+      if (e.key === 'ArrowRight' && next) onNavigate(next.id)
+    }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, onNavigate, prev, next])
 
   const s = ctx.stats.get(p.id)!
   const allPast = ctx.model.activities.filter(a => a.hasData && a.at < ctx.now && a.kind !== 'ekstra')
@@ -69,6 +82,18 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
           <button onClick={onClose} className="rounded-full bg-black/15 px-3 py-1.5 text-sm font-bold hover:bg-black/25" aria-label="Lukk">✕</button>
         </div>
 
+        {order.length > 1 && (
+          <nav className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-1.5 text-sm" aria-label="Bla mellom personer">
+            <button disabled={!prev} onClick={() => prev && onNavigate(prev.id)} className="min-w-0 truncate rounded-md px-2 py-1 font-medium text-navy hover:bg-slate-100 disabled:invisible">
+              ← <Pii>{prev ? shortName(prev, order) : ''}</Pii>
+            </button>
+            <span className="mx-auto shrink-0 text-xs text-slate-400 tabular-nums">{pos + 1} av {order.length}</span>
+            <button disabled={!next} onClick={() => next && onNavigate(next.id)} className="min-w-0 truncate rounded-md px-2 py-1 font-medium text-navy hover:bg-slate-100 disabled:invisible">
+              <Pii>{next ? shortName(next, order) : ''}</Pii> →
+            </button>
+          </nav>
+        )}
+
         <div className="space-y-4 p-4">
           {p.uncertain && (
             <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
@@ -88,7 +113,7 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
           <div className="grid grid-cols-3 gap-2">
             <Tile label="Oppmøte" value={<PctStats s={s} />} sub={s.godkjent ? 'valgt periode (godkjent fravær holdt utenfor)' : 'valgt periode'} />
             <Tile label="Ja / avslått / ?" value={<span className="text-xl">{s.ja}/{s.nei}/{s.ikkeSvart}</span>} sub={`av ${s.invited}${s.godkjent ? ` · ${s.godkjent} godkjent fravær` : ''}`} />
-            <Tile label="På rad" value={s.streak} sub="ja siste aktiviteter" />
+            <Tile label="Flest på rad" value={s.maxStreak} sub={`ja i valgt periode · nå ${s.streak}`} />
           </div>
           <div className="rounded-xl bg-white p-3 text-xs text-slate-500 shadow-sm">
             Hele perioden: <b className="text-slate-700">{pctText(sAll.pct)}</b> ({sAll.ja} av {sAll.invited}).
@@ -104,12 +129,6 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
               <b className="text-slate-700">{sKamp.invited ? `${sKamp.ja} av ${sKamp.invited}` : 'ikke innkalt ennå'}</b>
             </div>
           </div>
-
-          {upcoming.length > 0 && (
-            <Section title="Kommende">
-              {upcoming.map(a => <ActRow key={a.idx} a={a} p={p} />)}
-            </Section>
-          )}
 
           {nextTournaments.length > 0 && (
             <Section title={`Neste turneringer for ${team!.name}`}>
@@ -146,6 +165,12 @@ export default function PersonDrawer({ ctx, person: p, onClose, onSetTeam }: Pro
           <Section title={`Historikk (${mine.filter(a => a.at < ctx.now).length})`} right={<Legend />}>
             {[...mine].filter(a => a.at < ctx.now).reverse().map(a => <ActRow key={a.idx} a={a} p={p} />)}
           </Section>
+
+          {upcoming.length > 0 && (
+            <Section title={`Kommende (${upcoming.length})`}>
+              {upcoming.map(a => <ActRow key={a.idx} a={a} p={p} />)}
+            </Section>
+          )}
         </div>
       </aside>
     </div>

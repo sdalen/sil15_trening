@@ -1,13 +1,11 @@
 import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { teams } from '../data/sil15.js'
-import { colorTeam, personIceMinutes, type Person, type Stats } from '../lib/model'
+import { personIceMinutes, teamRank, type Person, type Stats } from '../lib/model'
 import { hoursText, shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { Card, Empty, Legend, NrBadge, PersonBadge, PctStats, StatsBar, StatusDot, Pii } from './common'
 
-type SortKey = 'name' | 'team' | 'nr' | 'ja' | 'nei' | 'godkjent' | 'ikkeSvart' | 'pct' | 'streak' | 'ice'
-const teamOrder = (p: Person) => (p.kind === 'stab' ? 50 : 0) + (colorTeam(p) ? teams.findIndex(t => t.id === colorTeam(p)) : 99)
+type SortKey = 'name' | 'team' | 'nr' | 'ja' | 'nei' | 'godkjent' | 'ikkeSvart' | 'pct' | 'maxStreak' | 'ice'
 
 export default function PlayersView({ ctx }: { ctx: Ctx }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'team', dir: 1 })
@@ -20,7 +18,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
   const val = (p: Person, s: Stats): number | string => {
     switch (sort.key) {
       case 'name': return p.name
-      case 'team': return teamOrder(p) * 1000 + (p.nr ? Number(p.nr) : 999)
+      case 'team': return teamRank(p) * 1000 + (p.nr ? Number(p.nr) : 999)
       case 'nr': return p.nr ? Number(p.nr) : 999
       case 'pct': return s.pct ?? -1
       case 'ice': return (ice.get(p.id)?.main ?? 0) + (ice.get(p.id)?.extra ?? 0)
@@ -65,14 +63,14 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                 <Th k="ikkeSvart" className="hidden text-right md:table-cell">Ikke svart</Th>
                 <th className="hidden w-40 px-2 py-2 font-semibold lg:table-cell">Fordeling</th>
                 <th className="hidden px-2 py-2 font-semibold xl:table-cell">Siste {last.length}</th>
-                <Th k="streak" className="hidden text-right lg:table-cell">På rad</Th>
+                <Th k="maxStreak" className="hidden text-right lg:table-cell">Flest på rad</Th>
                 {showIce && <Th k="ice" className="hidden text-right md:table-cell">På is</Th>}
                 <Th k="pct" className="pr-3 text-right sm:pr-4">Oppmøte</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map(({ p, s }) => (
-                <tr key={p.id} onClick={() => ctx.openPerson(p.id)} className={`cursor-pointer hover:bg-slate-50 ${p.inactive ? "opacity-50" : ""}`}>
+                <tr key={p.id} onClick={() => ctx.openPerson(p.id, rows.map(r => r.p.id))} className={`cursor-pointer hover:bg-slate-50 ${p.inactive ? "opacity-50" : ""}`}>
                   <td className="py-2 pr-1 pl-3 sm:pr-2 sm:pl-4"><NrBadge p={p} /></td>
                   <td className="px-2 py-2">
                     <div className="font-medium">
@@ -103,7 +101,7 @@ export default function PlayersView({ ctx }: { ctx: Ctx }) {
                       {last.map(a => <StatusDot key={a.idx} s={p.statuses[a.idx]} title={`${shortDate(a.at)} ${a.time}`} />)}
                     </div>
                   </td>
-                  <td className="hidden px-2 py-2 text-right tabular-nums lg:table-cell">{s.streak}</td>
+                  <td className="hidden px-2 py-2 text-right tabular-nums lg:table-cell" title={`Lengste rekke med ja: ${s.maxStreak} · nå: ${s.streak}`}>{s.maxStreak}</td>
                   {showIce && (
                     <td className="hidden px-2 py-2 text-right whitespace-nowrap tabular-nums md:table-cell" title="Tid på is: treninger og Early Bird med ja-svar i valgt periode (ikke kamper/barmark)">
                       {ice.get(p.id)!.main + ice.get(p.id)!.extra ? hoursText(ice.get(p.id)!.main + ice.get(p.id)!.extra) : ''}

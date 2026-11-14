@@ -1,0 +1,11 @@
+# Cookie for Rubic – brukes av scripts/rubic-csv.mjs (npm run export)
+#
+# 1. Kopier denne fila til scripts/.cookie  (cp scripts/.cookie.example scripts/.cookie)
+# 2. Logg inn på https://connect.rubic.no i nettleseren
+# 3. Åpne utviklerverktøy (⌥⌘I / F12) → Network → klikk et kall til connect.rubic.no
+# 4. Kopier verdien av «Cookie» under Request Headers
+# 5. Erstatt LIM_INN_COOKIE_HER under med verdien (linjer som starter med # ignoreres)
+#
+# scripts/.cookie står i .gitignore og skal ALDRI i git: cookien gir full tilgang til Rubic-kontoen din.
+# Den slutter å virke når du logger ut av Rubic.
+LIM_INN_COOKIE_HER

@@ -28,7 +28,8 @@ export interface Ctx {
   team: TeamFilter
   query: string
   noAnswerIsAbsent: boolean
-  openPerson: (id: string) => void
+  /** order = rekkefølgen det ble åpnet fra (f.eks. sortert spillerliste) – brukes til forrige/neste */
+  openPerson: (id: string, order?: string[]) => void
   /** Bytt til Aktiviteter-fanen med denne aktiviteten åpen */
   openActivity: (idx: number) => void
   /** Aktivitet som skal åpnes/scrolles til i Aktiviteter-fanen */

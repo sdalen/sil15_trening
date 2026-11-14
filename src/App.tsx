@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { teams, type TeamId } from './data/sil15.js'
 import {
-  buildModel, colorTeam, fold, mergeExports, parseExport, inPeriod, isPeriod, matchesType, monthsWithData, namesIn, personStats, PERIODS,
+  buildModel, byTeamNr, colorTeam, fold, mergeExports, parseExport, inPeriod, isPeriod, matchesType, monthsWithData, namesIn, personStats, PERIODS,
   type ActType, type CsvFile, type Model, type Overrides, type Period, type Person,
 } from './lib/model'
 import { unlock, type RosterEntry, type SealedEntry } from './lib/rosterCrypto'
@@ -57,6 +57,7 @@ export default function App() {
   const noAnswerIsAbsent = true
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const [navOrder, setNavOrder] = useState<string[] | null>(null)
   const [focusAct, setFocusAct] = useState<number | null>(null)
   const [now, setNow] = useState(() => new Date())
   const [furnes, setFurnes] = useState<boolean>(() => store.get('furnes', false))
@@ -140,7 +141,11 @@ export default function App() {
     const extraLabel = extraActs.find(a => a.title)?.title ?? 'ekstratreninger'
     return {
       model, now, periodActs, pastActs, group, groupPeople, population, visible, stats, extraStats, extraLabel, periodExtra,
-      team: teamFilter, query: q, noAnswerIsAbsent, openPerson: setSelected,
+      team: teamFilter, query: q, noAnswerIsAbsent,
+      openPerson: (id: string, order?: string[]) => {
+        setSelected(id)
+        setNavOrder(order ?? null)
+      },
       openActivity: (idx: number) => {
         setFocusAct(idx)
         setTab('aktiviteter')
@@ -341,8 +346,14 @@ export default function App() {
       {info}
       {person && (
         <PersonDrawer
+          key={person.id} // ny person = start øverst i kortet
           ctx={ctx}
           person={person}
+          // Forrige/neste: rekkefølgen personen ble åpnet fra, ellers synlige personer sortert på lag og nummer
+          order={(navOrder ?? [...ctx.visible].sort(byTeamNr).map(p => p.id))
+            .map(id => model.people.find(p => p.id === id))
+            .filter((p): p is Person => !!p)}
+          onNavigate={id => setSelected(id)}
           onClose={() => setSelected(null)}
           onSetTeam={(t: TeamId | 'none' | 'auto') =>
             setOverrides(o => {

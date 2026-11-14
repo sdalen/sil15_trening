@@ -7,3 +7,7 @@ dist
 
 # Klartekst-data (navn) – skal aldri i git
 private/
+
+# Rubic-innlogging og eksporterte oppmøtefiler (navn) – skal aldri i git
+scripts/.cookie
+local/

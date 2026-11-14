@@ -389,7 +389,10 @@ export interface Stats {
   ikkeSvart: number
   invited: number
   pct: number | null
+  /** Sammenhengende «ja» bakover fra siste aktivitet */
   streak: number
+  /** Lengste sammenhengende rekke med «ja» i perioden */
+  maxStreak: number
 }
 
 export function personStats(p: Person, acts: Activity[], noAnswerIsAbsent: boolean): Stats {
@@ -411,7 +414,15 @@ export function personStats(p: Person, acts: Activity[], noAnswerIsAbsent: boole
     if (s !== 'ja') break
     streak++
   }
-  return { ja, nei, godkjent, ikkeSvart, invited: ja + nei + ikkeSvart + godkjent, pct: denom ? ja / denom : null, pctGodkjent: denom - godkjent ? ja / (denom - godkjent) : null, streak }
+  // Lengste rekke: ikke invitert og godkjent fravær bryter ikke rekken (samme regel som over)
+  let maxStreak = 0
+  for (let i = 0, run = 0; i < acts.length; i++) {
+    const s = p.statuses[acts[i].idx]
+    if (s === null || isApproved(p, acts[i])) continue
+    run = s === 'ja' ? run + 1 : 0
+    maxStreak = Math.max(maxStreak, run)
+  }
+  return { ja, nei, godkjent, ikkeSvart, invited: ja + nei + ikkeSvart + godkjent, pct: denom ? ja / denom : null, pctGodkjent: denom - godkjent ? ja / (denom - godkjent) : null, streak, maxStreak }
 }
 
 export function countStatuses(people: Person[], a: Activity) {
@@ -476,6 +487,18 @@ export function matchesType(a: Activity, t: ActType) {
 
 /** Laget en person vises med (spillerlag, eller laget en stabsperson er knyttet til) */
 export const colorTeam = (p: Person): TeamId | null => p.teamId ?? p.staffTeam
+
+/** Sortering på lag (spillere før stab) og draktnummer – samme som standard i spillerlista */
+export const teamRank = (p: Person) => (p.kind === 'stab' ? 50 : 0) + (colorTeam(p) ? teams.findIndex(t => t.id === colorTeam(p)) : 99)
+export const byTeamNr = (a: Person, b: Person) =>
+  teamRank(a) - teamRank(b) || (a.nr ? Number(a.nr) : 999) - (b.nr ? Number(b.nr) : 999) || a.name.localeCompare(b.name, 'nb')
+
+/** Fornavn, med initialer for resten av navnet når flere i `others` har samme fornavn («Julian LC») */
+export function shortName(p: Person, others: Person[]) {
+  const [first, ...rest] = p.name.split(/\s+/)
+  const dup = others.some(o => o.id !== p.id && o.name.split(/\s+/)[0] === first)
+  return dup && rest.length ? `${first} ${rest.map(x => x[0]).join('')}` : first
+}
 
 /** Skal personen telle med i snitt og rangering? (Ikke sluttede spillere, ikke lagledere – de forventes ikke å møte) */
 export const countsInStats = (p: Person) => !p.inactive && p.role !== 'Lagleder'
