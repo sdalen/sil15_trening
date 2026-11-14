@@ -32,7 +32,7 @@ Filene og saltet lagres bare i nettleseren (`localStorage`). «Fjern data» i ap
 
 Begge kan kombineres med «Legg til CSV». Lag, rolle, kategori og grunner fra en `export_all`-fil blir stående om du legger en Rubic-eksport oppå.
 
-> **Lagspesifikt:** lagene og fargene deres (Hvit, Rød, Blå, Gul) og serieoppsettet ligger i `src/data/sil15.js`, og logoen i `public/`. Skal appen brukes for et annet lag, må disse byttes ut.
+> **Lagspesifikt:** lagene og fargene deres (Hvit, Rød, Blå, Gul) og serieoppsettet ligger i `src/data/sil15.js`, og logoen i `public/`. Skal appen brukes for et annet lag, må disse byttes ut. Se [LAGOPPSETT.md](LAGOPPSETT.md#3-lagene-srcdatasil15js).
 
 ## Kom i gang
 
@@ -148,6 +148,8 @@ npm run encrypt-roster
 ```
 
 Skriptet spør etter et salt (minst 8 tegn, vises ikke og lagres ingen steder) og skriver `src/data/roster.enc.json`. Hver person krypteres for seg med en nøkkel avledet fra fullt navn, slik det står i Rubic, pluss saltet. Appen kan derfor bare låse opp personer som står i CSV-en som lastes opp, og bare med riktig salt. Commit `roster.enc.json` etterpå, og bruk samme salt i appen.
+
+**Se [LAGOPPSETT.md](LAGOPPSETT.md)** for formatet på `private/roster.json` (med eksempel), alle feltene, hvordan saltet byttes, og hvordan lagene er definert.
 
 ## Publisering
 
