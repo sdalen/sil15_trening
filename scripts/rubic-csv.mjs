@@ -47,13 +47,14 @@ let orgs = (args.org ?? '7516').split(',').map(Number)
 let EXTRA = new Map((args.ekstra ?? '').split(',').filter(Boolean).map(x => { const [id, ...n] = x.split('='); return [Number(id), n.join('=') || 'Ekstratrening'] }))
 // Lag-grupper (type «lag»): org-id -> lagets kortnavn i Rubic («Hvit»). Deltakerne på lagets aktiviteter gir kolonnen «Lag».
 let LAG = new Map()
-function applyGroups() {
+function applyGroups({ quiet = false } = {}) {
   if (!groups) return
   orgs = groups.map(g => g.id)
   EXTRA = new Map(groups.filter(g => g.type === 'ekstra').map(g => [g.id, g.navn || 'Ekstratrening']))
-  console.error('Grupper:', groups.map(g => `${g.id} ${g.navn} (${g.type})`).join(', '))
+  if (!quiet) console.error('Grupper:', groups.map(g => `${g.id} ${g.navn} (${g.type})`).join(', '))
 }
-applyGroups()
+// Med --velg vises gruppene først etter valget (fila er bare forhåndsvalg)
+applyGroups({ quiet: 'velg' in args })
 for (const id of EXTRA.keys()) if (!orgs.includes(id)) orgs.push(id)
 // Tidsstempel i filnavnet (norsk tid), så nyeste uttrekk er lett å finne: oppmote_2026-05-01_2026-11-13_kl1142.csv
 const stamp = new Intl.DateTimeFormat('nb-NO', { timeZone: 'Europe/Oslo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(':', '')
