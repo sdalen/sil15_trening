@@ -26,12 +26,20 @@ const LIST_URL = process.env.RUBIC_LIST_URL ?? '/connectApi/api/my-activities'
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith('--') ? [...acc, [a.slice(2), all[i + 1]?.startsWith('--') ? '' : all[i + 1]]] : acc), []),
 )
-const from = args.from
+// --grupper-liste: skriv ut gruppene du har aktiviteter i (siste år + et halvt år frem) og avslutt
+const listMode = 'grupper-liste' in args
+const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+const from = args.from ?? (listMode ? day(-365) : undefined)
 // --frem 28: ta med kommende aktiviteter så mange dager frem (når --to ikke er satt)
-const to = args.to ?? new Date(Date.now() + Number(args.frem ?? 0) * 86400000).toISOString().slice(0, 10)
-const orgs = (args.org ?? '7516').split(',').map(Number)
+const to = args.to ?? day(listMode ? 180 : Number(args.frem ?? 0))
+// --grupper scripts/grupper.csv: gruppene som skal hentes (erstatter --org og --ekstra)
+const groups = args.grupper ? readGroups(args.grupper) : null
+const orgs = groups ? groups.map(g => g.id) : (args.org ?? '7516').split(',').map(Number)
 // --ekstra 66490=Early Bird: frivillige ekstratreninger – egen kategori «Ekstra», telles ikke i oppmøte
-const EXTRA = new Map((args.ekstra ?? '').split(',').filter(Boolean).map(x => { const [id, ...n] = x.split('='); return [Number(id), n.join('=') || 'Ekstratrening'] }))
+const EXTRA = groups
+  ? new Map(groups.filter(g => g.type === 'ekstra').map(g => [g.id, g.navn || 'Ekstratrening']))
+  : new Map((args.ekstra ?? '').split(',').filter(Boolean).map(x => { const [id, ...n] = x.split('='); return [Number(id), n.join('=') || 'Ekstratrening'] }))
+if (groups) console.error('Grupper:', groups.map(g => `${g.id} ${g.navn} (${g.type})`).join(', '))
 for (const id of EXTRA.keys()) if (!orgs.includes(id)) orgs.push(id)
 // Tidsstempel i filnavnet (norsk tid), så nyeste uttrekk er lett å finne: oppmote_2026-05-01_2026-11-13_kl1142.csv
 const stamp = new Intl.DateTimeFormat('nb-NO', { timeZone: 'Europe/Oslo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(':', '')
@@ -68,7 +76,7 @@ async function api(url, body) {
 }
 
 // ---------- aktiviteter ----------
-async function listActivities() {
+async function listActivities({ allOrgs = false } = {}) {
   const all = []
   const seen = new Set()
   for (let skip = 0; ; ) {
@@ -91,7 +99,43 @@ async function listActivities() {
     skip = r.query.activityPaging.skip ?? skip + r.activities.length
   }
   // Lista kan inneholde hele feeden (også fotball) – behold bare valgte organisasjoner og perioden
-  return all.filter(a => orgs.includes(a.organizationID) && local(a.startDate).date >= from && local(a.startDate).date <= to)
+  return all.filter(a => (allOrgs || orgs.includes(a.organizationID)) && local(a.startDate).date >= from && local(a.startDate).date <= to)
+}
+
+// ---------- grupper ----------
+/**
+ * Leser gruppefila: én linje per gruppe, «id,navn,type». type = oppmøte (standard) eller ekstra.
+ * Linjer som starter med #, tomme linjer og overskriftslinja hoppes over.
+ */
+function readGroups(file) {
+  if (!existsSync(file)) die(`Finner ikke gruppefila ${file}`)
+  const groups = []
+  for (const [n, raw] of readFileSync(file, 'utf8').split('\n').entries()) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const cols = line.split(',').map(c => c.trim())
+    if (!/^\d+$/.test(cols[0])) {
+      if (n === 0 || /^id$/i.test(cols[0])) continue // overskrift
+      die(`${file} linje ${n + 1}: «${cols[0]}» er ikke en gruppe-id`)
+    }
+    const type = (cols.length >= 3 ? cols.at(-1) : 'oppmøte').toLowerCase().replace('oppmote', 'oppmøte') || 'oppmøte'
+    if (type !== 'oppmøte' && type !== 'ekstra') die(`${file} linje ${n + 1}: type må være «oppmøte» eller «ekstra», ikke «${type}»`)
+    groups.push({ id: Number(cols[0]), navn: (cols.length >= 3 ? cols.slice(1, -1) : cols.slice(1)).join(',').trim(), type })
+  }
+  if (!groups.length) die(`Ingen grupper i ${file}`)
+  return groups
+}
+
+/** --grupper-liste: alle grupper du har aktiviteter i, med undergrupper – klart til å kopiere inn i gruppefila */
+async function printGroups() {
+  const counts = new Map()
+  for (const a of await listActivities({ allOrgs: true })) counts.set(a.organizationID, (counts.get(a.organizationID) ?? 0) + 1)
+  console.log(`# Grupper med aktiviteter ${from}–${to} (id,navn,type  # antall aktiviteter)`)
+  for (const [id, n] of [...counts].sort((x, y) => y[1] - x[1])) {
+    const o = await api(`/activityapi/organization/${id}`)
+    console.log(`${id},${o.organizationName},oppmøte  # ${n} aktiviteter`)
+    for (const c of o.children ?? []) console.log(`#   undergruppe: ${c.organizationID},${c.organizationName}  # ${counts.get(c.organizationID) ?? 0} aktiviteter`)
+  }
 }
 
 /** UTC -> norsk lokal dato og klokkeslett */
@@ -105,6 +149,10 @@ function local(iso) {
 }
 
 // ---------- main ----------
+if (listMode) {
+  await printGroups()
+  process.exit(0)
+}
 const acts = (await listActivities()).sort((a, b) => a.startDate.localeCompare(b.startDate))
 const statuses = new Map(acts.map(a => [a.activityStatus, 0]))
 for (const a of acts) statuses.set(a.activityStatus, statuses.get(a.activityStatus) + 1)
