@@ -82,7 +82,17 @@ Med gruppefil får CSV-en to ekstra kolonner:
 - **Lag:** kortnavnet på laget i Rubic (Blå, Gul, Hvit, Rød), ut fra hvilke lag personen er invitert til kamper med.
 - **Rolle:** rollen i Rubic for trenere og ledere (Hovedtrener, SIL - Trener, Ass. trener, Lagleder, Materialforvalter). Trenere og lagledere står også på kampene til laget sitt, så personer med rolle blir stab for det laget, ikke spillere.
 
-Appen bygger lagoppsettet rett fra disse kolonnene, så **saltet trengs ikke**. Skriver du inn saltet i tillegg, legges draktnummer, kallenavn og rettelser fra det krypterte lagoppsettet på toppen, men lag og rolle fra Rubic vinner.
+Appen bygger lagoppsettet rett fra disse kolonnene, så **saltet trengs ikke**. Haken «Bruk salt» på startskjermen avgjør hva som brukes:
+
+| | Uten salt | Med salt |
+| --- | --- | --- |
+| Navn, lag og rolle | ✓ fra Rubic (CSV-en) | ✓ fra Rubic, lagt oppå det krypterte |
+| Draktnummer | – | ✓ |
+| Kallenavn | – (fornavn, med initialer ved like navn) | ✓ |
+| Manuelle rettelser (oppmøte som ikke er registrert) | – | ✓ |
+| Spillere som har sluttet, skjules | – | ✓ |
+
+**Draktnummer, kallenavn og rettelser finnes ikke i Rubic.** Deltakerlistene har bare navn, og ingen endepunkter med draktnummer er funnet. De ligger derfor bare i det krypterte lagoppsettet (`src/data/roster.enc.json`) og krever salt. Hvis lag og rolle står i både Rubic og det krypterte lagoppsettet, vinner Rubic.
 
 `npm run grupper` lister alle gruppene du har aktiviteter i, med id, navn, undergrupper og antall aktiviteter. Uten tastatur (for eksempel når input sendes inn via en pipe) bruker `export_all` forhåndsvalgene i gruppefila.
 
