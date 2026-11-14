@@ -1,22 +1,24 @@
-# SIL 15 – oppmøte
+# Oppmøte fra Rubic
 
-Nettside som viser oppmøte på treninger, kamper og cuper for Storhamar gutter 2015 (U12), basert på påmeldingene i Rubic.
+Nettside som viser oppmøte på treninger, kamper og cuper for et lag eller en årgang, basert på påmeldingene i Rubic. Hvilke grupper som tas med, velger du når du eksporterer, og tittelen i appen hentes fra gruppenavnet i Rubic (for eksempel «Team 2015 Oppmøte»).
 
-Appen er en ren nettside uten server (React + Vite), publisert på GitHub Pages. Ingen navn ligger i klartekst i koden: oppmøtet lastes opp som CSV i nettleseren, og lagoppsettet ligger kryptert.
+Appen er en ren nettside uten server (React + Vite), publisert på GitHub Pages. Ingen navn ligger i klartekst i koden: oppmøtet lastes opp som CSV i nettleseren, og lag og roller kommer fra Rubic eller fra et kryptert lagoppsett.
 
 ## Slik henger det sammen
 
 ```
-Rubic ──(npm run export + cookie)──▶ oppmote_….csv ──(last opp i appen)──▶ nettleseren
-                                                                            ▲
-private/roster.json ──(npm run encrypt-roster + salt)──▶ src/data/roster.enc.json
+Rubic ──(npm run export_all + cookie)──▶ oppmote_alle_….csv ──(last opp i appen)──▶ nettleseren
+                                                                                    ▲ (valgfritt salt)
+private/roster.json ──(npm run encrypt-roster + salt)──▶ src/data/roster.enc.json ──┘
 ```
 
-1. **Hent oppmøte fra Rubic** med `npm run export`. Det gir en CSV-fil i `~/Downloads`.
+1. **Hent oppmøte fra Rubic** med `npm run export_all`. Velg barn og grupper, så lagres en CSV-fil med navn, lag og rolle i `~/Downloads`.
 2. **Last opp CSV-en i appen.** «Legg til CSV» fyller på: nye aktiviteter legges til, og eksisterende oppdateres fra den nyeste fila.
-3. **Skriv inn saltet** i appen. Da låses lagoppsettet (lag, draktnummer, trenere) opp for personene som står i CSV-en.
+3. **Velg med eller uten salt.** Uten salt brukes lag og roller fra CSV-en. Med salt legges draktnummer, kallenavn og rettelser fra det krypterte lagoppsettet på toppen.
 
 Filene og saltet lagres bare i nettleseren (`localStorage`). «Fjern data» i appen sletter dem.
+
+> **Lagspesifikt:** lagene og fargene deres (Hvit, Rød, Blå, Gul) og serieoppsettet ligger i `src/data/sil15.js`, og logoen i `public/`. Skal appen brukes for et annet lag, må disse byttes ut.
 
 ## Kom i gang
 
