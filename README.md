@@ -18,6 +18,20 @@ private/roster.json ──(npm run encrypt-roster + salt)──▶ src/data/rost
 
 Filene og saltet lagres bare i nettleseren (`localStorage`). «Fjern data» i appen sletter dem.
 
+**Alternativ: oppmøteeksporten fra Rubic.** Du kan også logge inn i Rubic og laste ned oppmøteeksporten derfra. Den har navn og påmeldinger, men ikke lag og rolle, så da **må du bruke salt**. Den mangler også det `export_all` legger til:
+
+| | `npm run export_all` | Eksport fra Rubic |
+| --- | --- | --- |
+| Navn og påmeldinger | ✓ | ✓ |
+| Lag og rolle (fungerer uten salt) | ✓ | – |
+| Kategori og tittel (trening, kamp, cup, ekstra) | ✓ | – |
+| Varighet, sted og lenke til aktiviteten | ✓ | – |
+| Grunn til avslag | ✓ | – |
+| Gruppenavn som tittel i appen | ✓ | – (viser «U12») |
+| Avlyste aktiviteter holdes utenfor | ✓ | – |
+
+Begge kan kombineres med «Legg til CSV». Lag, rolle, kategori og grunner fra en `export_all`-fil blir stående om du legger en Rubic-eksport oppå.
+
 > **Lagspesifikt:** lagene og fargene deres (Hvit, Rød, Blå, Gul) og serieoppsettet ligger i `src/data/sil15.js`, og logoen i `public/`. Skal appen brukes for et annet lag, må disse byttes ut.
 
 ## Kom i gang
