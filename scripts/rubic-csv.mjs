@@ -29,9 +29,9 @@ const args = Object.fromEntries(
 // --grupper-liste: skriv ut gruppene du har aktiviteter i (siste år + et halvt år frem) og avslutt
 const listMode = 'grupper-liste' in args
 const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
-const from = args.from ?? (listMode ? day(-365) : undefined)
+let from = args.from ?? (listMode ? day(-365) : undefined)
 // --frem 28: ta med kommende aktiviteter så mange dager frem (når --to ikke er satt)
-const to = args.to ?? day(listMode ? 180 : Number(args.frem ?? 0))
+let to = args.to ?? day(listMode ? 180 : Number(args.frem ?? 0))
 // Gyldige typer i gruppefila
 const TYPES = ['oppmøte', 'ekstra', 'lag']
 // --grupper scripts/grupper.csv: gruppene som skal hentes (erstatter --org og --ekstra)
@@ -54,7 +54,8 @@ for (const id of EXTRA.keys()) if (!orgs.includes(id)) orgs.push(id)
 // Tidsstempel i filnavnet (norsk tid), så nyeste uttrekk er lett å finne: oppmote_2026-05-01_2026-11-13_kl1142.csv
 const stamp = new Intl.DateTimeFormat('nb-NO', { timeZone: 'Europe/Oslo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(':', '')
 // --dir: mappe for fila (f.eks. ~/Downloads); standard er local/ i repoet
-const out = args.out ?? join(args.dir || join(HERE, '..', 'local'), `${args.navn ?? 'oppmote'}_${from}_${to}_kl${stamp}.csv`)
+// Funksjon, fordi --velg kan endre perioden
+const outFile = () => args.out ?? join(args.dir || join(HERE, '..', 'local'), `${args.navn ?? 'oppmote'}_${from}_${to}_kl${stamp}.csv`)
 if (!from) die('Mangler --from åååå-mm-dd')
 if (!LIST_URL) die('Sett RUBIC_LIST_URL (eller LIST_URL i skriptet) til URL-en for aktivitetslisten («paged?…»).')
 
@@ -145,6 +146,22 @@ function writeGroups(file, chosen, others) {
   writeFileSync(file, [...head, 'id,navn,type', ...chosen.map(line), ...others.map(g => `# ${line(g)}`)].join('\n') + '\n')
 }
 
+/** «2026-05-01» -> «01.05.26» (norsk format i spørsmålene) */
+const nb = iso => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}`
+
+/** «01.05.26», «1.5.2026» eller «2026-05-01» -> «2026-05-01». Tomt svar -> null (behold forhåndsvalget). */
+function parseDate(s) {
+  if (!s) return null
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  const [y, mo, d] = m ? [m[1], m[2], m[3]] : (m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/)) ? [m[3].length === 2 ? `20${m[3]}` : m[3], m[2], m[1]] : []
+  const iso = y && `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
+  if (!iso || Number.isNaN(Date.parse(iso)) || new Date(iso).toISOString().slice(0, 10) !== iso) {
+    console.error(`  Skjønte ikke datoen «${s}» – bruk dd.mm.åå, f.eks. 01.05.26`)
+    return null
+  }
+  return iso
+}
+
 /**
  * --velg: velg barn fra /coreapi/me, deretter hvilke av barnets grupper (og undergrupper) som skal med.
  * Forhåndsvalg og typer hentes fra gruppefila, og valget lagres tilbake dit.
@@ -154,6 +171,16 @@ async function chooseGroups(defaults) {
   const tty = process.stdin.isTTY
   const rl = tty ? createInterface({ input: process.stdin, output: process.stderr }) : null
   const ask = async (q, def = '') => (rl ? (await rl.question(q)).trim() : def)
+  // Spør til svaret er en gyldig dato; Enter beholder forhåndsvalget
+  const askDate = async (label, def) => {
+    for (;;) {
+      const a = await ask(`${label} (dd.mm.åå) [${nb(def)}]: `)
+      if (!a) return def
+      const d = parseDate(a)
+      if (d) return d
+      if (!rl) return def
+    }
+  }
   const defType = new Map(defaults.map(g => [g.id, g.type]))
 
   // 1. Barn
@@ -169,6 +196,16 @@ async function chooseGroups(defaults) {
     if (a) kid = kids[Number(a) - 1] ?? die(`Ugyldig valg: ${a}`)
   }
   console.error(`→ ${kid.firstName}`)
+
+  // Periode: forhåndsvalgt fra --from/--to. Norsk format dd.mm.åå (dd.mm.åååå og åååå-mm-dd går også).
+  for (;;) {
+    from = await askDate('Startdato', from)
+    to = await askDate('Sluttdato', to)
+    if (from <= to) break
+    console.error(`  Startdato ${nb(from)} er etter sluttdato ${nb(to)} – prøv igjen.`)
+    if (!rl) die('Startdato er etter sluttdato.')
+  }
+  console.error(`→ ${nb(from)}–${nb(to)}`)
 
   // 2. Barnets grupper + undergruppene deres (f.eks. lagene under Team 2015), med antall aktiviteter i perioden
   const counts = new Map()
@@ -189,7 +226,7 @@ async function chooseGroups(defaults) {
   // 3. Velg
   const code = { o: 'oppmøte', e: 'ekstra', l: 'lag' }
   for (;;) {
-    console.error(`\nGrupper for ${kid.firstName} (${from}–${to}):`)
+    console.error(`\nGrupper for ${kid.firstName} (${nb(from)}–${nb(to)}):`)
     list.forEach((g, i) => {
       const t = chosen.get(g.id)
       console.error(`  ${t ? '[x]' : '[ ]'} ${String(i + 1).padStart(2)}. ${g.navn}${g.under ? ` (under ${g.under})` : ''} · ${counts.get(g.id) ?? 0} akt.${t ? `  → ${t}` : ''}`)
@@ -354,6 +391,7 @@ const rows = [...people.values()]
     const n = c => p.codes.filter(x => x === c).length
     return [p.name, `(${n('3')}/${n('1')}/${n('5')})`, ...(withTeams ? [p.team, p.role] : []), ...p.codes]
   })
+const out = outFile()
 writeFileSync(out, [header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n')
 console.error(`Skrev ${rows.length} personer × ${keep.length} aktiviteter til ${out}`)
 
