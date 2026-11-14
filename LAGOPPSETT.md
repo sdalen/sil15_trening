@@ -42,6 +42,11 @@ Rekkefølgen på kolonnene spiller ingen rolle. Spillere uten lag hoppes over. U
 3. Last opp fila i appen med samme knapp som oppmøte-CSV-en. Appen kjenner den igjen på kolonnene. Haken for salt byttes ut med «Lagoppsett: <fil>».
 4. Del fila med de andre trenerne på samme måte som oppmøte-CSV-en. Den inneholder navn, så den skal ikke i git.
 
+**Hvor ligger fila?** Ikke på serveren og ikke i git. Den finnes bare:
+- **hos deg:** lagre den for eksempel som `private/lagoppsett.csv` i repoet. `private/` og alle `lagoppsett*.csv` står i `.gitignore`, så den kan ikke bli committet ved et uhell.
+- **i nettleseren** til hver som har lastet den opp (`localStorage`). «Fjern data» sletter den.
+- **hos de andre trenerne**, delt på en privat kanal (delt mappe, melding). Når fila endres, må den deles og lastes opp på nytt.
+
 Lagoppsettet fungerer også med eksporten rett fra Rubic (uten Lag-kolonnen). Da kommer lag og rolle fra lagoppsettet. «📄 <fil>» øverst i appen fjerner det igjen.
 
 ## Kryptert lagoppsett
