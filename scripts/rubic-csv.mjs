@@ -32,14 +32,24 @@ const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
 const from = args.from ?? (listMode ? day(-365) : undefined)
 // --frem 28: ta med kommende aktiviteter så mange dager frem (når --to ikke er satt)
 const to = args.to ?? day(listMode ? 180 : Number(args.frem ?? 0))
+// Gyldige typer i gruppefila
+const TYPES = ['oppmøte', 'ekstra', 'lag']
 // --grupper scripts/grupper.csv: gruppene som skal hentes (erstatter --org og --ekstra)
-const groups = args.grupper ? readGroups(args.grupper) : null
-const orgs = groups ? groups.map(g => g.id) : (args.org ?? '7516').split(',').map(Number)
+// --velg: velg barn og grupper interaktivt (gruppefila brukes som forhåndsvalg og oppdateres med valget)
+let groups = args.grupper ? readGroups(args.grupper, { allowEmpty: 'velg' in args }) : null
+// Settes av applyGroups() – etter et eventuelt interaktivt valg
+let orgs = (args.org ?? '7516').split(',').map(Number)
 // --ekstra 66490=Early Bird: frivillige ekstratreninger – egen kategori «Ekstra», telles ikke i oppmøte
-const EXTRA = groups
-  ? new Map(groups.filter(g => g.type === 'ekstra').map(g => [g.id, g.navn || 'Ekstratrening']))
-  : new Map((args.ekstra ?? '').split(',').filter(Boolean).map(x => { const [id, ...n] = x.split('='); return [Number(id), n.join('=') || 'Ekstratrening'] }))
-if (groups) console.error('Grupper:', groups.map(g => `${g.id} ${g.navn} (${g.type})`).join(', '))
+let EXTRA = new Map((args.ekstra ?? '').split(',').filter(Boolean).map(x => { const [id, ...n] = x.split('='); return [Number(id), n.join('=') || 'Ekstratrening'] }))
+// Lag-grupper (type «lag»): org-id -> lagets kortnavn i Rubic («Hvit»). Deltakerne på lagets aktiviteter gir kolonnen «Lag».
+let LAG = new Map()
+function applyGroups() {
+  if (!groups) return
+  orgs = groups.map(g => g.id)
+  EXTRA = new Map(groups.filter(g => g.type === 'ekstra').map(g => [g.id, g.navn || 'Ekstratrening']))
+  console.error('Grupper:', groups.map(g => `${g.id} ${g.navn} (${g.type})`).join(', '))
+}
+applyGroups()
 for (const id of EXTRA.keys()) if (!orgs.includes(id)) orgs.push(id)
 // Tidsstempel i filnavnet (norsk tid), så nyeste uttrekk er lett å finne: oppmote_2026-05-01_2026-11-13_kl1142.csv
 const stamp = new Intl.DateTimeFormat('nb-NO', { timeZone: 'Europe/Oslo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(':', '')
@@ -62,7 +72,7 @@ const EXPIRED = `
      3. Kopier verdien av «Cookie» under Request Headers
      4. Lim den inn i ${cookieFile} (erstatt alt som står der) og kjør på nytt
 `
-async function api(url, body) {
+async function api(url, body, { soft = false } = {}) {
   const res = await fetch(url.startsWith('http') ? url : BASE + url, {
     method: body ? 'POST' : 'GET',
     headers: { cookie, accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) },
@@ -71,6 +81,8 @@ async function api(url, body) {
   // Utløpt cookie gir 401/403, eller en omdirigering til innloggingssiden (HTML i stedet for JSON)
   const isJson = (res.headers.get('content-type') ?? '').includes('json')
   if (res.status === 401 || res.status === 403 || (res.ok && !isJson)) die(EXPIRED)
+  // soft: returner null i stedet for å stoppe (f.eks. gamle grupper som er slettet i Rubic)
+  if (!res.ok && soft) return null
   if (!res.ok) die(`${res.status} ${res.statusText} for ${url}\n${(await res.text()).slice(0, 500)}`)
   return res.json()
 }
@@ -104,11 +116,11 @@ async function listActivities({ allOrgs = false } = {}) {
 
 // ---------- grupper ----------
 /**
- * Leser gruppefila: én linje per gruppe, «id,navn,type». type = oppmøte (standard) eller ekstra.
+ * Leser gruppefila: én linje per gruppe, «id,navn,type». type = oppmøte (standard), ekstra eller lag.
  * Linjer som starter med #, tomme linjer og overskriftslinja hoppes over.
  */
-function readGroups(file) {
-  if (!existsSync(file)) die(`Finner ikke gruppefila ${file}`)
+function readGroups(file, { allowEmpty = false } = {}) {
+  if (!existsSync(file)) return allowEmpty ? [] : die(`Finner ikke gruppefila ${file}`)
   const groups = []
   for (const [n, raw] of readFileSync(file, 'utf8').split('\n').entries()) {
     const line = raw.trim()
@@ -119,11 +131,86 @@ function readGroups(file) {
       die(`${file} linje ${n + 1}: «${cols[0]}» er ikke en gruppe-id`)
     }
     const type = (cols.length >= 3 ? cols.at(-1) : 'oppmøte').toLowerCase().replace('oppmote', 'oppmøte') || 'oppmøte'
-    if (type !== 'oppmøte' && type !== 'ekstra') die(`${file} linje ${n + 1}: type må være «oppmøte» eller «ekstra», ikke «${type}»`)
+    if (!TYPES.includes(type)) die(`${file} linje ${n + 1}: type må være ${TYPES.map(t => `«${t}»`).join(', ')}, ikke «${type}»`)
     groups.push({ id: Number(cols[0]), navn: (cols.length >= 3 ? cols.slice(1, -1) : cols.slice(1)).join(',').trim(), type })
   }
-  if (!groups.length) die(`Ingen grupper i ${file}`)
+  if (!groups.length && !allowEmpty) die(`Ingen grupper i ${file}`)
   return groups
+}
+
+/** Skriver gruppefila på nytt: kommentarene øverst beholdes, valgte grupper først, resten kommentert ut */
+function writeGroups(file, chosen, others) {
+  const head = existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter((l, i, all) => l.startsWith('#') && all.slice(0, i).every(x => x.startsWith('#'))) : []
+  const line = g => `${g.id},${g.navn},${g.type}`
+  writeFileSync(file, [...head, 'id,navn,type', ...chosen.map(line), ...others.map(g => `# ${line(g)}`)].join('\n') + '\n')
+}
+
+/**
+ * --velg: velg barn fra /coreapi/me, deretter hvilke av barnets grupper (og undergrupper) som skal med.
+ * Forhåndsvalg og typer hentes fra gruppefila, og valget lagres tilbake dit.
+ */
+async function chooseGroups(defaults) {
+  const { createInterface } = await import('node:readline/promises')
+  const tty = process.stdin.isTTY
+  const rl = tty ? createInterface({ input: process.stdin, output: process.stderr }) : null
+  const ask = async (q, def = '') => (rl ? (await rl.question(q)).trim() : def)
+  const defType = new Map(defaults.map(g => [g.id, g.type]))
+
+  // 1. Barn
+  const me = await api('/coreapi/me')
+  const kids = (me.person?.children ?? []).filter(k => (k.roles ?? []).length)
+  if (!kids.length) die('Fant ingen barn med grupper i Rubic (/coreapi/me).')
+  const score = k => (k.roles ?? []).filter(r => defType.has(r.organizationID)).length
+  let kid = kids.reduce((best, k) => (score(k) > score(best) ? k : best), kids[0])
+  if (kids.length > 1) {
+    console.error('\nBarn:')
+    kids.forEach((k, i) => console.error(`  ${i + 1}. ${k.firstName} (født ${k.birthDate?.slice(0, 4) ?? '?'})`))
+    const a = await ask(`Velg barn [${kids.indexOf(kid) + 1}]: `)
+    if (a) kid = kids[Number(a) - 1] ?? die(`Ugyldig valg: ${a}`)
+  }
+  console.error(`→ ${kid.firstName}`)
+
+  // 2. Barnets grupper + undergruppene deres (f.eks. lagene under Team 2015), med antall aktiviteter i perioden
+  const counts = new Map()
+  for (const a of await listActivities({ allOrgs: true })) counts.set(a.organizationID, (counts.get(a.organizationID) ?? 0) + 1)
+  const items = new Map()
+  // roleID 0 = medlem av hele klubben – for bredt til å være en aktivitetsgruppe
+  for (const id of new Set(kid.roles.filter(r => r.roleID !== 0).map(r => r.organizationID))) {
+    const o = await api(`/activityapi/organization/${id}`, undefined, { soft: true })
+    if (!o) continue // gruppa finnes ikke lenger (f.eks. Tine 2025)
+    if (!items.has(id)) items.set(id, { id, navn: o.organizationName, under: '' })
+    for (const c of o.children ?? []) if (!items.has(c.organizationID)) items.set(c.organizationID, { id: c.organizationID, navn: c.organizationName, under: o.organizationName })
+  }
+  // Grupper i fila som barnet ikke er direkte med i (f.eks. de andre lagene) skal også kunne velges
+  for (const g of defaults) if (!items.has(g.id)) items.set(g.id, { id: g.id, navn: g.navn, under: '' })
+  const list = [...items.values()].sort((x, y) => Number(defType.has(y.id)) - Number(defType.has(x.id)) || (counts.get(y.id) ?? 0) - (counts.get(x.id) ?? 0))
+  const chosen = new Map(list.filter(g => defType.has(g.id)).map(g => [g.id, defType.get(g.id)]))
+
+  // 3. Velg
+  const code = { o: 'oppmøte', e: 'ekstra', l: 'lag' }
+  for (;;) {
+    console.error(`\nGrupper for ${kid.firstName} (${from}–${to}):`)
+    list.forEach((g, i) => {
+      const t = chosen.get(g.id)
+      console.error(`  ${t ? '[x]' : '[ ]'} ${String(i + 1).padStart(2)}. ${g.navn}${g.under ? ` (under ${g.under})` : ''} · ${counts.get(g.id) ?? 0} akt.${t ? `  → ${t}` : ''}`)
+    })
+    console.error('  Skriv nummer for å slå av/på, eller med type: 3o = oppmøte, 3e = ekstra, 3l = lag. Flere: «1 4l 5l».')
+    const a = await ask('Endre, eller Enter for å kjøre: ')
+    if (!a) break
+    for (const tok of a.split(/[\s,]+/)) {
+      const m = tok.match(/^(\d+)([oel]?)$/i)
+      const g = m && list[Number(m[1]) - 1]
+      if (!g) { console.error(`  Skjønte ikke «${tok}»`); continue }
+      if (m[2]) chosen.set(g.id, code[m[2].toLowerCase()])
+      else if (chosen.has(g.id)) chosen.delete(g.id)
+      else chosen.set(g.id, 'oppmøte')
+    }
+  }
+  rl?.close()
+  const result = list.filter(g => chosen.has(g.id)).map(g => ({ id: g.id, navn: g.navn, type: chosen.get(g.id) }))
+  if (!result.length) die('Ingen grupper valgt.')
+  if (args.grupper) writeGroups(args.grupper, result, list.filter(g => !chosen.has(g.id)).map(g => ({ id: g.id, navn: g.navn, type: defType.get(g.id) ?? 'oppmøte' })))
+  return result
 }
 
 /** --grupper-liste: alle grupper du har aktiviteter i, med undergrupper – klart til å kopiere inn i gruppefila */
@@ -153,6 +240,12 @@ if (listMode) {
   await printGroups()
   process.exit(0)
 }
+if ('velg' in args) {
+  groups = await chooseGroups(groups ?? [])
+  applyGroups()
+}
+// Kortnavnet til hvert lag («Hvit») – det er dette appen matcher mot lagene sine
+for (const g of groups ?? []) if (g.type === 'lag') LAG.set(g.id, (await api(`/activityapi/organization/${g.id}`)).organizationShortName || g.navn)
 const acts = (await listActivities()).sort((a, b) => a.startDate.localeCompare(b.startDate))
 const statuses = new Map(acts.map(a => [a.activityStatus, 0]))
 for (const a of acts) statuses.set(a.activityStatus, statuses.get(a.activityStatus) + 1)
@@ -168,6 +261,8 @@ for (const a of cancelled) console.error(`  Hopper over (activityStatus=${a.acti
 function category(a) {
   if (EXTRA.has(a.organizationID)) return 'Ekstra'
   const t = a.title.toLowerCase()
+  // Lagenes egne aktiviteter er kamper («Kamprunde – Skedsmo»), med mindre tittelen sier trening
+  if (LAG.has(a.organizationID) && !/trening/.test(t)) return /cup|turnering/.test(t) ? 'Cup' : 'Kamp'
   if (/kiosk|dugnad|møte/.test(t)) return 'Annet'
   if (/treningskamp/.test(t)) return 'Treningskamp'
   if (/cup|turnering|futsal/.test(t)) return 'Cup'
@@ -191,9 +286,20 @@ console.error('Kategorier:', cats)
 const CODE = { 3: '3', 5: '5', 1: '1' }
 const people = new Map() // personID -> { name, codes[] }
 const attendance = new Map()
+const teamVotes = new Map() // personID -> Map(lag -> antall lagaktiviteter)
+const roles = new Map() // personID -> Set(Rubic-roller som «SIL - Trener»)
 for (const [i, a] of keep.entries()) {
   const parts = await api(`/activityapi/organization/${a.organizationID}/activity/${a.activityID}/participants`)
   for (const p of parts) {
+    const pid = p.person.personID
+    // Lag: spillere (activeParticipant) som er invitert til lagets aktiviteter
+    if (LAG.has(a.organizationID) && p.activeParticipant) {
+      const v = teamVotes.get(pid) ?? new Map()
+      v.set(LAG.get(a.organizationID), (v.get(LAG.get(a.organizationID)) ?? 0) + 1)
+      teamVotes.set(pid, v)
+    }
+    // Rolle: lagledere/trenere står som ikke-spillere med rollenavn
+    if (!p.activeParticipant) for (const r of p.roleNames ?? []) if (r !== 'Member') (roles.get(pid) ?? roles.set(pid, new Set()).get(pid)).add(r)
     // --kun-spillere: dropp lagledere/administratorer (activeParticipant = false)
     if ('kun-spillere' in args && !p.activeParticipant) continue
     const id = p.person.personID
@@ -229,12 +335,24 @@ const cell = v => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
 const minutes = a => (a.endDate && !a.fullDay ? Math.round((new Date(a.endDate) - new Date(a.startDate)) / 60000) : 0)
 const place = a => (a.location ?? '').replace(/[\[\]]/g, '').replace(/\s+/g, ' ').trim()
 const meta = a => `${minutes(a) > 0 ? ` [${minutes(a)} min]` : ''}${place(a) ? ` [sted:${place(a)}]` : ''} [rubic:${a.organizationID}/${a.activityID}]`
-const header = ['Navn', 'Totalt', ...keep.map(a => `${local(a.startDate).header} ${category(a)} · ${EXTRA.get(a.organizationID) ?? a.title.replace(/\s+/g, ' ').trim()}${meta(a)}`)]
+// Med gruppefil/--velg: kolonnene «Lag» og «Rolle», så appen kan bygge lagoppsettet uten salt
+const withTeams = !!groups
+const teamOf = id => [...(teamVotes.get(id) ?? [])].sort((x, y) => y[1] - x[1])[0]?.[0] ?? ''
+const roleOf = id => [...(roles.get(id) ?? [])].join(' / ')
+for (const [id, p] of people) { p.team = teamOf(id); p.role = roleOf(id) }
+if (withTeams) {
+  const t = {}
+  // Trenere/lagledere står også på lagets kamper – de telles som stab, ikke spillere (appen gjør det samme)
+  for (const p of people.values()) if (p.team && !p.role) t[p.team] = (t[p.team] ?? 0) + 1
+  console.error(`Spillere per lag fra Rubic:`, t, `· stab med rolle: ${[...people.values()].filter(p => p.role).length}`)
+  if (!LAG.size) console.error('  (Ingen grupper med type «lag» valgt – kolonnen «Lag» blir tom.)')
+}
+const header = ['Navn', 'Totalt', ...(withTeams ? ['Lag', 'Rolle'] : []), ...keep.map(a => `${local(a.startDate).header} ${category(a)} · ${EXTRA.get(a.organizationID) ?? a.title.replace(/\s+/g, ' ').trim()}${meta(a)}`)]
 const rows = [...people.values()]
   .sort((x, y) => x.name.localeCompare(y.name, 'nb'))
   .map(p => {
     const n = c => p.codes.filter(x => x === c).length
-    return [p.name, `(${n('3')}/${n('1')}/${n('5')})`, ...p.codes]
+    return [p.name, `(${n('3')}/${n('1')}/${n('5')})`, ...(withTeams ? [p.team, p.role] : []), ...p.codes]
   })
 writeFileSync(out, [header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n')
 console.error(`Skrev ${rows.length} personer × ${keep.length} aktiviteter til ${out}`)

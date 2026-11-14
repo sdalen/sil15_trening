@@ -53,20 +53,30 @@ npm run export
 
 Dette kjører med faste valg fra `package.json`: perioden 01.05.2026–01.04.2027, Early Bird som ekstratrening, og fila lagres i `~/Downloads` som `oppmote_<fra>_<til>_kl<tid>.csv`.
 
-### Velge grupper selv (`npm run export_all`)
+### Komplett oversikt med lag, uten salt (`npm run export_all`)
 
-`npm run export_all` henter gruppene som står i [`scripts/grupper.csv`](scripts/grupper.csv), ikke de faste fra `package.json`. Fila lagres som `oppmote_alle_<fra>_<til>_kl<tid>.csv` i `~/Downloads`.
+`npm run export_all` er interaktiv:
 
-```
-id,navn,type
-7516,Team 2015 (Storhamar U12),oppmøte
-66490,Early Bird,ekstra
-# 66733,Storhamar U12 - Hvit,oppmøte
-```
+1. **Velg barn.** Barna hentes fra Rubic-kontoen din (`/coreapi/me`).
+2. **Velg grupper.** Du får barnets grupper og undergruppene deres (for eksempel lagene under Team 2015), med antall aktiviteter i perioden. Skriv et nummer for å slå en gruppe av eller på, eller nummer + type: `3o` = oppmøte, `3e` = ekstra, `3l` = lag. Trykk Enter for å kjøre.
+3. **Eksporten kjøres** for de valgte gruppene og lagres som `oppmote_alle_<fra>_<til>_kl<tid>.csv` i `~/Downloads`.
 
-- `type` er `oppmøte` (teller i oppmøtet) eller `ekstra` (egen kategori «Ekstra», telles ikke, og navnet brukes som tittel).
-- Linjer som starter med `#` hoppes over. Fjern `#` for å ta med en gruppe.
-- `npm run grupper` lister alle gruppene du har aktiviteter i, med id, navn, undergrupper og antall aktiviteter, klart til å kopiere inn i fila.
+Valget lagres i [`scripts/grupper.csv`](scripts/grupper.csv) og brukes som forhåndsvalg neste gang. Fila inneholder bare gruppe-id-er og gruppenavn, ingen personer.
+
+| Type | Betydning |
+| --- | --- |
+| `oppmøte` | Aktivitetene teller i oppmøtet |
+| `ekstra` | Frivillig ekstratrening: egen kategori «Ekstra», telles ikke, og navnet brukes som tittel |
+| `lag` | Et lag (for eksempel Storhamar U12 - Hvit). Lagets aktiviteter tas med som kamper, og deltakerne får laget i kolonnen **Lag** |
+
+Med gruppefil får CSV-en to ekstra kolonner:
+
+- **Lag:** kortnavnet på laget i Rubic (Blå, Gul, Hvit, Rød), ut fra hvilke lag personen er invitert til kamper med.
+- **Rolle:** rollen i Rubic for trenere og ledere (Hovedtrener, SIL - Trener, Ass. trener, Lagleder, Materialforvalter). Trenere og lagledere står også på kampene til laget sitt, så personer med rolle blir stab for det laget, ikke spillere.
+
+Appen bygger lagoppsettet rett fra disse kolonnene, så **saltet trengs ikke**. Skriver du inn saltet i tillegg, legges draktnummer, kallenavn og rettelser fra det krypterte lagoppsettet på toppen, men lag og rolle fra Rubic vinner.
+
+`npm run grupper` lister alle gruppene du har aktiviteter i, med id, navn, undergrupper og antall aktiviteter. Uten tastatur (for eksempel når input sendes inn via en pipe) bruker `export_all` forhåndsvalgene i gruppefila.
 
 ### Egne valg
 
@@ -84,6 +94,7 @@ node scripts/rubic-csv.mjs --from 2026-08-01 --to 2026-11-12
 | `--org 7516` | Rubic-organisasjon(er), kommaseparert (standard `7516`) |
 | `--ekstra 66490=Early Bird` | Frivillige ekstratreninger: egen kategori «Ekstra», telles ikke i oppmøtet |
 | `--grupper scripts/grupper.csv` | Hent gruppene i fila (erstatter `--org` og `--ekstra`) |
+| `--velg` | Velg barn og grupper interaktivt (sammen med `--grupper`, som lagrer valget) |
 | `--grupper-liste` | List gruppene du har aktiviteter i, og avslutt |
 | `--dir ~/Downloads` | Mappe for fila (standard `local/`, som ligger i `.gitignore`) |
 | `--out fil.csv` / `--navn oppmote` | Eksakt filnavn / prefiks for filnavnet |

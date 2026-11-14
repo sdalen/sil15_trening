@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { teams, type TeamId } from './data/sil15.js'
 import {
-  buildModel, byTeamNr, colorTeam, fold, mergeExports, parseExport, inPeriod, isPeriod, matchesType, monthsWithData, namesIn, personStats, PERIODS,
+  buildModel, byTeamNr, colorTeam, fold, mergeExports, mergeRosters, parseExport, inPeriod, isPeriod, matchesType, monthsWithData, namesIn, personStats, PERIODS, rosterFromCsv,
   type ActType, type CsvFile, type Model, type Overrides, type Period, type Person,
 } from './lib/model'
 import { unlock, type RosterEntry, type SealedEntry } from './lib/rosterCrypto'
@@ -102,18 +102,35 @@ export default function App() {
       stop = true
     }
   }, [csv, extraMatches, salt])
-  const roster = unlocked?.salt === salt ? unlocked.roster : null
+  const sealed = salt && unlocked?.salt === salt ? unlocked.roster : null
+  // Lag og roller rett fra CSV-en (npm run export_all) – da trengs ikke saltet
+  const csvRoster = useMemo(() => {
+    if (!csv) return new Map<string, RosterEntry>()
+    try {
+      return rosterFromCsv([csv, ...extraMatches])
+    } catch {
+      return new Map<string, RosterEntry>()
+    }
+  }, [csv, extraMatches])
+  const hasCsvRoster = csvRoster.size > 0
+  // Med salt: vent på opplåsingen. Uten salt: bare lagoppsettet fra CSV-en.
+  const roster = useMemo(
+    () => (salt ? (sealed && sealed.size > 0 ? mergeRosters(csvRoster, sealed) : sealed && hasCsvRoster ? csvRoster : sealed) : hasCsvRoster ? csvRoster : null),
+    [salt, sealed, csvRoster, hasCsvRoster],
+  )
   // Ingen treff i det hele tatt = saltet passer ikke (eller fila er fra et annet lag)
-  const wrongSalt = !!roster && roster.size === 0
+  const wrongSalt = !!sealed && sealed.size === 0
+  // Personer i det krypterte lagoppsettet som ikke finnes i filene (bare relevant når saltet er brukt)
+  const rosterSize = (roster?.size ?? 0) + (sealed && sealed.size > 0 ? SEALED.length - sealed.size : 0)
 
   const result = useMemo((): { model: Model | null; error?: string } => {
     if (!csv || !roster || roster.size === 0) return { model: null }
     try {
-      return { model: buildModel(csv, extraMatches, overrides, roster, SEALED.length) }
+      return { model: buildModel(csv, extraMatches, overrides, roster, rosterSize) }
     } catch (e) {
       return { model: null, error: (e as Error).message }
     }
-  }, [csv, extraMatches, overrides, roster])
+  }, [csv, extraMatches, overrides, roster, rosterSize])
   const model = result.model
 
   const ctx = useMemo<Ctx | null>(() => {
@@ -209,6 +226,7 @@ export default function App() {
         csvName={csv ? ((csv.files?.length ?? 1) > 1 ? `${csv.files!.length} filer` : csv.name) : null}
         salt={salt}
         wrongSalt={wrongSalt}
+        saltOptional={hasCsvRoster}
         loading={!!csv && !!salt && !roster}
         error={result.error}
         onSalt={setSalt}
@@ -373,6 +391,8 @@ function Landing(props: {
   csvName: string | null
   salt: string
   wrongSalt: boolean
+  /** CSV-en har lag fra Rubic (npm run export_all) – saltet trengs ikke */
+  saltOptional: boolean
   loading: boolean
   error?: string
   onSalt: (s: string) => void
@@ -381,7 +401,7 @@ function Landing(props: {
   onFurnes: () => void
   onInfo: () => void
 }) {
-  const { csvName, salt, wrongSalt, loading, error, onSalt, onUpload, onClear, onFurnes, onInfo } = props
+  const { csvName, salt, wrongSalt, saltOptional, loading, error, onSalt, onUpload, onClear, onFurnes, onInfo } = props
   const [draft, setDraft] = useState('')
   const needSalt = !salt || wrongSalt
   return (
@@ -406,7 +426,9 @@ function Landing(props: {
             {csvName && <span className="ml-3 text-sm text-white/80">✓ {csvName}</span>}
           </li>
           <li className="rounded-xl bg-white/10 p-3">
-            <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">2 · Salt</div>
+            <div className="mb-2 text-xs font-bold tracking-wider text-white/60 uppercase">
+              2 · Salt {saltOptional ? '(valgfritt – fila har lag fra Rubic)' : '(ikke nødvendig for filer fra npm run export_all)'}
+            </div>
             {needSalt ? (
               <form
                 className="flex gap-2"

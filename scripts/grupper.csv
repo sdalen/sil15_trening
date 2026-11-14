@@ -1,13 +1,25 @@
 # Rubic-grupper som hentes av «npm run export_all». Én linje per gruppe: id,navn,type
 #   type = oppmøte  → teller i oppmøtet
 #   type = ekstra   → frivillig ekstratrening: egen kategori «Ekstra», telles ikke i oppmøtet (navnet brukes som tittel)
-# Linjer som starter med # hoppes over – fjern # for å ta med en gruppe.
+#   type = lag      → et lag (f.eks. Storhamar U12 - Hvit): spillerne på lagets aktiviteter får laget i kolonnen «Lag»
+# npm run export_all lar deg velge barn og grupper, og lagrer valget her. Linjer som starter med # hoppes over.
 # Finn flere grupper (med id og navn) med:  npm run grupper
 id,navn,type
-7516,Team 2015 (Storhamar U12),oppmøte
+7516,Team 2015,oppmøte
 66490,Early Bird,ekstra
-# 66731,Storhamar U12 - Blå,oppmøte
-# 66732,Storhamar U12 - Gul,oppmøte
-# 66733,Storhamar U12 - Hvit,oppmøte
-# 66734,Storhamar U12 - Rød,oppmøte
+66731,Storhamar U12 - Blå,lag
+66732,Storhamar U12 - Gul,lag
+66733,Storhamar U12 - Hvit,lag
+66734,Storhamar U12 - Rød,lag
+# 20718,Gutter 2015,oppmøte
+# 61925,Felles trening gutter 2014 og 2015,oppmøte
+# 14157,Furnes Fotball,oppmøte
+# 16470,Arrangement,oppmøte
 # 58418,Trappekiosk,oppmøte
+# 21517,Løkkelørdag i hallen,oppmøte
+# 27627,Tine Fotballskole,oppmøte
+# 14523,Fotball,oppmøte
+# 15308,Fotball V,oppmøte
+# 14532,Organisasjon,oppmøte
+# 15999,Treningsgruppe,oppmøte
+# 60938,Tine 2026,oppmøte

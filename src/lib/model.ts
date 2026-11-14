@@ -94,8 +94,11 @@ const CANCELLED = new Set([
 interface ParsedExport {
   /** label = tekst etter klokkeslettet i overskriften, f.eks. kategorien fra local/rubic-csv.mjs («Cup») */
   cols: { date: string; time: string; label: string }[]
-  /** notes = kommentar per aktivitet (f.eks. grunn til avslag), fra celler på formen «5 | Hockeykamp» */
-  rows: { name: string; total: string; codes: Status[]; notes: string[] }[]
+  /**
+   * notes = kommentar per aktivitet (f.eks. grunn til avslag), fra celler på formen «5 | Hockeykamp».
+   * team/role = kolonnene «Lag» og «Rolle» fra scripts/rubic-csv.mjs (tom streng når de mangler).
+   */
+  rows: { name: string; total: string; team: string; role: string; codes: Status[]; notes: string[] }[]
 }
 
 /** Leser en Rubic-oppmøteeksport: Navn, Totalt, og én kolonne per aktivitet «dd.mm.åååå (tt:mm)». */
@@ -105,6 +108,8 @@ export function parseExport(text: string): ParsedExport {
   const [header, ...body] = rows
   const nameCol = Math.max(0, header.findIndex(h => /navn/i.test(h)))
   const totalCol = header.findIndex(h => /totalt/i.test(h))
+  const teamCol = header.findIndex(h => /^\s*lag\s*$/i.test(h))
+  const roleCol = header.findIndex(h => /^\s*rolle\s*$/i.test(h))
   const colIdx: number[] = []
   const cols: ParsedExport['cols'] = []
   header.forEach((h, i) => {
@@ -121,6 +126,8 @@ export function parseExport(text: string): ParsedExport {
       .map(r => ({
         name: norm(r[nameCol] ?? ''),
         total: totalCol >= 0 ? (r[totalCol] ?? '') : '',
+        team: teamCol >= 0 ? norm(r[teamCol] ?? '') : '',
+        role: roleCol >= 0 ? norm(r[roleCol] ?? '') : '',
         codes: colIdx.map(c => CODES[(r[c] ?? '').split('|')[0].trim()] ?? null),
         notes: colIdx.map(c => (r[c] ?? '').split('|').slice(1).join('|').trim()),
       }))
@@ -160,12 +167,15 @@ export function mergeExports(oldText: string, newText: string): string {
   const cols = order.map(k => all.get(k)!)
   const colPos = new Map(order.map((k, i) => [k, i]))
 
-  const people = new Map<string, { name: string; total: string; codes: Status[]; notes: string[] }>()
+  const people = new Map<string, { name: string; total: string; team: string; role: string; codes: Status[]; notes: string[] }>()
   for (const [x, xKeys] of [[a, aKeys], [b, bKeys]] as const) {
     for (const r of x.rows) {
       const k = fold(r.name)
-      const p = people.get(k) ?? { name: r.name, total: '', codes: new Array<Status>(cols.length).fill(null), notes: new Array<string>(cols.length).fill('') }
+      const p = people.get(k) ?? { name: r.name, total: '', team: '', role: '', codes: new Array<Status>(cols.length).fill(null), notes: new Array<string>(cols.length).fill('') }
       if (r.total) p.total = r.total
+      // Lag og rolle: nyeste fil vinner, men en vanlig Rubic-eksport (uten kolonnene) visker ikke ut det vi har
+      if (r.team) p.team = r.team
+      if (r.role) p.role = r.role
       xKeys.forEach((k, i) => {
         const pos = colPos.get(k)!
         // Vanlig Rubic-eksport har ingen grunner – behold grunnen fra før så lenge statusen er den samme
@@ -177,8 +187,9 @@ export function mergeExports(oldText: string, newText: string): string {
     }
   }
   const cell = (v: string) => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
-  const header = ['Navn', 'Totalt', ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})${c.label ? ` ${c.label}` : ''}`)]
-  const lines = [header, ...[...people.values()].map(p => [p.name, p.total, ...p.codes.map((s, i) => (s ? UNCODE[s] + (p.notes[i] ? ` | ${p.notes[i]}` : '') : ''))])]
+  const extra = [...people.values()].some(p => p.team || p.role)
+  const header = ['Navn', 'Totalt', ...(extra ? ['Lag', 'Rolle'] : []), ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})${c.label ? ` ${c.label}` : ''}`)]
+  const lines = [header, ...[...people.values()].map(p => [p.name, p.total, ...(extra ? [p.team, p.role] : []), ...p.codes.map((s, i) => (s ? UNCODE[s] + (p.notes[i] ? ` | ${p.notes[i]}` : '') : ''))])]
   return lines.map(l => l.map(cell).join(',')).join('\n') + '\n'
 }
 
@@ -229,6 +240,59 @@ function makeActivity(idx: number, date: string, time: string, kind: ActKind, so
 /** Alle navn i en eksport – brukes for å låse opp lagoppsettet */
 export function namesIn(files: CsvFile[]): string[] {
   return files.flatMap(f => parseExport(f.text).rows.map(r => r.name))
+}
+
+/** Rubic-rolle («SIL - Trener», «Ass. trener», «Hovedtrener» …) -> stabsrolle i appen */
+function staffRole(role: string): StaffRole | null {
+  if (/hovedtrener/i.test(role)) return 'Hovedtrener'
+  if (/trener/i.test(role)) return 'Trener'
+  if (/lagleder/i.test(role)) return 'Lagleder'
+  if (/materialforvalter/i.test(role)) return 'Materialforvalter'
+  return null
+}
+
+/**
+ * Lagoppsett rett fra CSV-en (kolonnene «Lag» og «Rolle» fra scripts/rubic-csv.mjs), uten salt.
+ * Lag = kortnavnet på laget i Rubic («Hvit», «Rød» …), som matches mot lagene i sil15.js.
+ * Tomt kart når fila ikke har kolonnene (vanlig Rubic-eksport) – da trengs det krypterte lagoppsettet.
+ */
+export function rosterFromCsv(files: CsvFile[]): Map<string, RosterEntry> {
+  const byFold = new Map(teams.map(t => [fold(t.short), t.id]))
+  const roster = new Map<string, RosterEntry>()
+  for (const f of files) {
+    for (const r of parseExport(f.text).rows) {
+      const team = r.team ? byFold.get(fold(r.team)) : undefined
+      const role = r.role ? staffRole(r.role) : null
+      if (!team && !role) continue
+      const k = fold(r.name)
+      const e = roster.get(k) ?? { full: r.name }
+      // Trenere/lagledere står også som deltakere på lagets kamper – med rolle er de stab (for det laget), ikke spillere
+      if (role) e.staff = { role, team: team ?? null }
+      else if (team) e.player = { team, short: r.name.split(' ')[0], nr: null }
+      roster.set(k, e)
+    }
+  }
+  return roster
+}
+
+/**
+ * Slår sammen lagoppsettet fra CSV-en (Rubic) med det krypterte (draktnummer, kallenavn, rettelser …).
+ * Lag og rolle fra Rubic vinner; resten hentes fra det krypterte der det finnes.
+ */
+export function mergeRosters(fromCsv: Map<string, RosterEntry>, sealed: Map<string, RosterEntry> | null): Map<string, RosterEntry> {
+  if (!sealed) return fromCsv
+  const out = new Map(sealed)
+  for (const [k, c] of fromCsv) {
+    const s = sealed.get(k)
+    if (!s) out.set(k, c)
+    else out.set(k, {
+      ...s,
+      // Laget kommer fra Rubic, så koblingen er ikke lenger usikker. Draktnummer gjelder bare på samme lag.
+      player: c.player ? { ...c.player, ...s.player, team: c.player.team, nr: s.player?.team === c.player.team ? s.player.nr : null, uncertain: false } : c.staff ? undefined : s.player,
+      staff: c.staff ?? (c.player ? undefined : s.staff),
+    })
+  }
+  return out
 }
 
 /**
