@@ -615,7 +615,7 @@ export const teamRank = (p: Person) => (p.kind === 'stab' ? 50 : 0) + (colorTeam
 export const byTeamNr = (a: Person, b: Person) =>
   teamRank(a) - teamRank(b) || (a.nr ? Number(a.nr) : 999) - (b.nr ? Number(b.nr) : 999) || a.name.localeCompare(b.name, 'nb')
 
-/** Fornavn, med initialer for resten av navnet når flere i `others` har samme fornavn («Julian LC») */
+/** Fornavn, med initialer for resten av navnet når flere i `others` har samme fornavn («Ola ON») */
 export function shortName(p: Person, others: Person[]) {
   const [first, ...rest] = p.name.split(/\s+/)
   const dup = others.some(o => o.id !== p.id && o.name.split(/\s+/)[0] === first)

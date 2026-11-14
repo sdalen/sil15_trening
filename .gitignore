@@ -11,3 +11,8 @@ private/
 # Rubic-innlogging og eksporterte oppmøtefiler (navn) – skal aldri i git
 scripts/.cookie
 local/
+
+# Lagoppsett og oppmøtefiler (navn) – også om de lagres utenfor private/ eller local/
+lagoppsett*.csv
+oppmote*.csv
+Rubic*.csv
