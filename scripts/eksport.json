@@ -1,0 +1,5 @@
+{
+  "_info": "Periode for npm run export og npm run export_all. Norsk format dd.mm.åå. --from/--to på kommandolinja overstyrer.",
+  "fra": "01.05.26",
+  "til": "01.04.27"
+}

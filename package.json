@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "encrypt-roster": "node scripts/encrypt-roster.ts",
-    "export": "node scripts/rubic-csv.mjs --from 2026-05-01 --to 2027-04-01 --ekstra '66490=Early Bird' --dir ~/Downloads",
-    "export_all": "node scripts/rubic-csv.mjs --from 2026-05-01 --to 2027-04-01 --grupper scripts/grupper.csv --velg --navn oppmote_alle --dir ~/Downloads",
+    "export": "node scripts/rubic-csv.mjs --ekstra '66490=Early Bird' --dir ~/Downloads",
+    "export_all": "node scripts/rubic-csv.mjs --grupper scripts/grupper.csv --velg --navn oppmote_alle --dir ~/Downloads",
     "grupper": "node scripts/rubic-csv.mjs --grupper-liste"
   },
   "dependencies": {

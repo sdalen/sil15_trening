@@ -51,7 +51,15 @@ Cookien slutter å virke når du logger ut av Rubic, eller når økta går ut. D
 npm run export
 ```
 
-Dette kjører med faste valg fra `package.json`: perioden 01.05.2026–01.04.2027, Early Bird som ekstratrening, og fila lagres i `~/Downloads` som `oppmote_<fra>_<til>_kl<tid>.csv`.
+Dette henter Team 2015 med Early Bird som ekstratrening, og fila lagres i `~/Downloads` som `oppmote_<fra>_<til>_kl<tid>.csv`.
+
+**Perioden** står i [`scripts/eksport.json`](scripts/eksport.json) i norsk format, og gjelder både `export` og `export_all`:
+
+```json
+{ "fra": "01.05.26", "til": "01.04.27" }
+```
+
+`--from`/`--to` på kommandolinja overstyrer fila.
 
 ### Komplett oversikt med lag, uten salt (`npm run export_all`)
 
@@ -59,7 +67,7 @@ Dette kjører med faste valg fra `package.json`: perioden 01.05.2026–01.04.202
 
 1. **Velg barn.** Barna hentes fra Rubic-kontoen din (`/coreapi/me`).
 2. **Velg grupper.** Du får barnets grupper og undergruppene deres (for eksempel lagene under Team 2015), med antall aktiviteter i perioden. Skriv et nummer for å slå en gruppe av eller på, eller nummer + type: `3o` = oppmøte, `3e` = ekstra, `3l` = lag. Trykk Enter for å kjøre.
-3. **Eksporten kjøres** for de valgte gruppene og lagres som `oppmote_alle_<fra>_<til>_kl<tid>.csv` i `~/Downloads`.
+3. **Eksporten kjøres** for de valgte gruppene i perioden fra `scripts/eksport.json` og lagres som `oppmote_alle_<fra>_<til>_kl<tid>.csv` i `~/Downloads`.
 
 Valget lagres i [`scripts/grupper.csv`](scripts/grupper.csv) og brukes som forhåndsvalg neste gang. Fila inneholder bare gruppe-id-er og gruppenavn, ingen personer.
 

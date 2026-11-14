@@ -29,9 +29,13 @@ const args = Object.fromEntries(
 // --grupper-liste: skriv ut gruppene du har aktiviteter i (siste år + et halvt år frem) og avslutt
 const listMode = 'grupper-liste' in args
 const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
-let from = args.from ?? (listMode ? day(-365) : undefined)
-// --frem 28: ta med kommende aktiviteter så mange dager frem (når --to ikke er satt)
-let to = args.to ?? day(listMode ? 180 : Number(args.frem ?? 0))
+// Fast periode i scripts/eksport.json («fra»/«til» i norsk format dd.mm.åå). --from/--to overstyrer.
+const configFile = join(HERE, 'eksport.json')
+const config = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')) : {}
+const configDate = key => config[key] && (parseDate(config[key]) ?? die(`Ugyldig «${key}» i ${configFile}: ${config[key]} (bruk dd.mm.åå)`))
+let from = args.from ?? (listMode ? day(-365) : configDate('fra'))
+// --frem 28: ta med kommende aktiviteter så mange dager frem (når verken --to eller «til» er satt)
+let to = args.to ?? (listMode ? day(180) : configDate('til') || day(Number(args.frem ?? 0)))
 // Gyldige typer i gruppefila
 const TYPES = ['oppmøte', 'ekstra', 'lag']
 // --grupper scripts/grupper.csv: gruppene som skal hentes (erstatter --org og --ekstra)
@@ -56,7 +60,8 @@ const stamp = new Intl.DateTimeFormat('nb-NO', { timeZone: 'Europe/Oslo', hour: 
 // --dir: mappe for fila (f.eks. ~/Downloads); standard er local/ i repoet
 // Funksjon, fordi --velg kan endre perioden
 const outFile = () => args.out ?? join(args.dir || join(HERE, '..', 'local'), `${args.navn ?? 'oppmote'}_${from}_${to}_kl${stamp}.csv`)
-if (!from) die('Mangler --from åååå-mm-dd')
+if (!from) die('Mangler startdato: sett «fra» i scripts/eksport.json (dd.mm.åå) eller bruk --from åååå-mm-dd')
+if (from > to) die(`Startdato ${nb(from)} er etter sluttdato ${nb(to)}`)
 if (!LIST_URL) die('Sett RUBIC_LIST_URL (eller LIST_URL i skriptet) til URL-en for aktivitetslisten («paged?…»).')
 
 const cookieFile = join(HERE, '.cookie')
@@ -147,7 +152,9 @@ function writeGroups(file, chosen, others) {
 }
 
 /** «2026-05-01» -> «01.05.26» (norsk format i spørsmålene) */
-const nb = iso => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}`
+function nb(iso) {
+  return `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}`
+}
 
 /** «01.05.26», «1.5.2026» eller «2026-05-01» -> «2026-05-01». Tomt svar -> null (behold forhåndsvalget). */
 function parseDate(s) {
@@ -171,16 +178,6 @@ async function chooseGroups(defaults) {
   const tty = process.stdin.isTTY
   const rl = tty ? createInterface({ input: process.stdin, output: process.stderr }) : null
   const ask = async (q, def = '') => (rl ? (await rl.question(q)).trim() : def)
-  // Spør til svaret er en gyldig dato; Enter beholder forhåndsvalget
-  const askDate = async (label, def) => {
-    for (;;) {
-      const a = await ask(`${label} (dd.mm.åå) [${nb(def)}]: `)
-      if (!a) return def
-      const d = parseDate(a)
-      if (d) return d
-      if (!rl) return def
-    }
-  }
   const defType = new Map(defaults.map(g => [g.id, g.type]))
 
   // 1. Barn
@@ -197,15 +194,7 @@ async function chooseGroups(defaults) {
   }
   console.error(`→ ${kid.firstName}`)
 
-  // Periode: forhåndsvalgt fra --from/--to. Norsk format dd.mm.åå (dd.mm.åååå og åååå-mm-dd går også).
-  for (;;) {
-    from = await askDate('Startdato', from)
-    to = await askDate('Sluttdato', to)
-    if (from <= to) break
-    console.error(`  Startdato ${nb(from)} er etter sluttdato ${nb(to)} – prøv igjen.`)
-    if (!rl) die('Startdato er etter sluttdato.')
-  }
-  console.error(`→ ${nb(from)}–${nb(to)}`)
+  console.error(`Periode: ${nb(from)}–${nb(to)} (endres i scripts/eksport.json)`)
 
   // 2. Barnets grupper + undergruppene deres (f.eks. lagene under Team 2015), med antall aktiviteter i perioden
   const counts = new Map()
