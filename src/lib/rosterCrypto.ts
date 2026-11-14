@@ -16,7 +16,8 @@ export type StaffRole = 'Hovedtrener' | 'Trener' | 'Lagleder' | 'Materialforvalt
 
 export interface RosterEntry {
   full: string
-  player?: { team: TeamId; short: string; nr: string | null; note?: string; uncertain?: boolean; inactive?: boolean }
+  /** team = null: spiller, men laget er ikke kjent ennå (vises «uten lag») */
+  player?: { team: TeamId | null; short: string; nr: string | null; note?: string; uncertain?: boolean; inactive?: boolean }
   staff?: { role: StaffRole; team: TeamId | null }
   /** Manuelle rettelser – gjelder bare treninger som står som «ikke svart» */
   corrections?: { from?: string; to?: string; status: 'ja' | 'nei' | null; note: string }[]

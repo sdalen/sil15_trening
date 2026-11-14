@@ -291,8 +291,9 @@ export function parseRosterCsv(text: string): Map<string, RosterEntry> {
     if (roleText && !role && !/^spiller$/i.test(roleText)) throw new Error(`Linje ${i + 2}: ukjent rolle «${roleText}». Bruk Spiller, Hovedtrener, Trener, Lagleder eller Materialforvalter.`)
     const e: RosterEntry = { full: name }
     if (role) e.staff = { role, team: team ?? null }
-    else if (team) e.player = { team, short: name.split(' ')[0], nr: cell(nrCol) || null }
-    else return // spiller uten lag – ingenting å legge til
+    // «Spiller» uten lag holder: spilleren telles med og vises «uten lag» til laget er kjent
+    else if (team || /^spiller$/i.test(roleText)) e.player = { team: team ?? null, short: name.split(' ')[0], nr: cell(nrCol) || null }
+    else return // verken lag eller rolle – ingenting å legge til
     roster.set(fold(name), e)
   })
   return roster
@@ -335,7 +336,8 @@ export function mergeRosters(fromCsv: Map<string, RosterEntry>, sealed: Map<stri
     else out.set(k, {
       ...s,
       // Laget kommer fra Rubic, så koblingen er ikke lenger usikker. Draktnummer gjelder bare på samme lag.
-      player: c.player ? { ...c.player, ...s.player, team: c.player.team, nr: s.player?.team === c.player.team ? s.player.nr : null, uncertain: false } : c.staff ? undefined : s.player,
+      // Draktnummer følger med når lagoppsettet har samme lag – eller ikke oppgir lag
+      player: c.player ? { ...c.player, ...s.player, team: c.player.team, nr: !s.player?.team || s.player.team === c.player.team ? (s.player?.nr ?? null) : null, uncertain: false } : c.staff ? undefined : s.player,
       staff: c.staff ?? (c.player ? undefined : s.staff),
     })
   }
@@ -373,7 +375,7 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
   const n = activities.length
 
   // Lagoppsett (dekryptert): fullt navn -> spillerinfo / stabsrolle
-  const players = new Map<string, { teamId: TeamId; short: string; nr: string | null; note?: string; uncertain: boolean; inactive?: boolean }>()
+  const players = new Map<string, { teamId: TeamId | null; short: string; nr: string | null; note?: string; uncertain: boolean; inactive?: boolean }>()
   const staff = new Map<string, { role: StaffRole; team: TeamId | null }>()
   for (const [k, e] of roster) {
     if (e.player) players.set(k, { teamId: e.player.team, short: e.player.short, nr: e.player.nr, note: e.player.note, uncertain: !!e.player.uncertain, inactive: e.player.inactive })
@@ -392,12 +394,13 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
     const p: Person = {
       id,
       name,
-      kind: teamId ? 'spiller' : st ? 'stab' : allPlayers ? 'spiller' : 'annen',
+      // Spiller i lagoppsettet uten kjent lag (og ikke overstyrt til «ikke spiller») er fortsatt spiller
+      kind: teamId ? 'spiller' : st ? 'stab' : (hit && ov === undefined) || allPlayers ? 'spiller' : 'annen',
       teamId,
       role: st?.role ?? null,
       staffTeam: st?.team ?? null,
       short: hit?.short ?? null,
-      nr: hit && hit.teamId === teamId ? hit.nr : null,
+      nr: hit && (hit.teamId === teamId || !hit.teamId) ? hit.nr : null,
       note: hit && hit.teamId === teamId ? hit.note : undefined,
       uncertain: !!hit?.uncertain && ov === undefined,
       inactive: !!hit?.inactive && teamId === hit.teamId,
