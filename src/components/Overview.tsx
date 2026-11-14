@@ -370,7 +370,7 @@ function DataQuality({ ctx }: { ctx: Ctx }) {
   const uncertain = model.people.filter(p => p.uncertain)
   const others = model.people.filter(p => p.kind === 'annen')
   const empty = model.activities.filter(a => !a.hasData && !a.replaced)
-  if (!uncertain.length && !model.missing && !others.length && !empty.length) return null
+  if (!uncertain.length && !model.missing && !model.hidden && !others.length && !empty.length) return null
   return (
     <Card title="Datakvalitet" right="kobling mellom Rubic og lagoppsett">
       <div className="grid gap-4 p-4 text-sm md:grid-cols-2">
@@ -384,6 +384,11 @@ function DataQuality({ ctx }: { ctx: Ctx }) {
         {model.missing > 0 && (
           <Box title="Finnes i lagoppsett, men ikke i Rubic" hint="Lagoppsettet er kryptert per navn, så bare antallet kan vises.">
             {model.missing} {model.missing === 1 ? 'person' : 'personer'} i lagoppsettet finnes ikke i de opplastede filene.
+          </Box>
+        )}
+        {model.hidden > 0 && (
+          <Box title="Ikke i lagoppsettet" hint="Det opplastede lagoppsettet er fasiten. Legg personen til i fila for å vise den.">
+            {model.hidden} {model.hidden === 1 ? 'person' : 'personer'} fra Rubic står ikke i lagoppsettet og vises ikke.
           </Box>
         )}
         {others.length > 0 && (

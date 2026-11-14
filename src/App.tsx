@@ -156,11 +156,11 @@ export default function App() {
   const result = useMemo((): { model: Model | null; error?: string } => {
     if (!csv || !roster) return { model: null }
     try {
-      return { model: buildModel(csv, extraMatches, overrides, roster, rosterSize, noTeams) }
+      return { model: buildModel(csv, extraMatches, overrides, roster, rosterSize, noTeams, fileRoster ? new Set(fileRoster.keys()) : undefined) }
     } catch (e) {
       return { model: null, error: (e as Error).message }
     }
-  }, [csv, extraMatches, overrides, roster, rosterSize, noTeams])
+  }, [csv, extraMatches, overrides, roster, rosterSize, noTeams, fileRoster])
   const model = result.model
 
   const ctx = useMemo<Ctx | null>(() => {

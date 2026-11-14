@@ -33,6 +33,8 @@ Lise Berg,Blå,,Lagleder
 | `Nr` | Draktnummer (tom hvis ukjent) |
 | `Rolle` | `Spiller` (eller tom), `Hovedtrener`, `Trener`, `Lagleder` eller `Materialforvalter` |
 
+**Lagoppsettet er fasiten:** personer fra Rubic som ikke står i fila, vises ikke. «Datakvalitet» på oversikten viser hvor mange det gjelder. Slett altså rader for dem som ikke skal være med, og legg til nye spillere i fila.
+
 Rekkefølgen på kolonnene spiller ingen rolle. `Rolle = Spiller` holder: en spiller uten lag telles med og vises «uten lag» til laget er kjent. Rader uten både lag og rolle hoppes over. Ukjent lag eller rolle gir en feilmelding med linjenummer.
 
 **Slik gjør du:**

@@ -74,6 +74,8 @@ export interface Model {
   people: Person[]
   /** Personer i det krypterte lagoppsettet som ikke fantes i de opplastede filene */
   missing: number
+  /** Personer i Rubic-filene som ikke står i det opplastede lagoppsettet – vises ikke */
+  hidden: number
 }
 
 export interface CsvFile {
@@ -348,8 +350,9 @@ export function mergeRosters(fromCsv: Map<string, RosterEntry>, sealed: Map<stri
  * @param roster  Opplåst lagoppsett (nøkkel = fold(fullt navn)), se rosterCrypto.unlock
  * @param rosterSize  Antall personer i det krypterte lagoppsettet
  * @param allPlayers  Ingen laginfo (Rubic-eksport uten salt): alle uten stabsrolle regnes som spillere, uten lag
+ * @param only  Opplastet lagoppsett er fasiten: bare disse personene (fold(navn)) vises
  */
-export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Overrides, roster: Map<string, RosterEntry>, rosterSize: number, allPlayers = false): Model {
+export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Overrides, roster: Map<string, RosterEntry>, rosterSize: number, allPlayers = false, only?: Set<string>): Model {
   const base = parseExport(main.text)
   const matches = matchFiles.map(f => ({ f, x: parseExport(f.text) }))
 
@@ -430,9 +433,12 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
   }
   // Personer som har sluttet (markert i lagoppsettet) vises ikke noe sted.
   // Personer som bare finnes på ekstratreninger (andre årganger på Early Bird) tas heller ikke med.
-  const people = [...byId.values()].filter(
+  const active = [...byId.values()].filter(
     p => !roster.get(p.id)?.removed && activities.some(a => a.kind !== 'ekstra' && p.statuses[a.idx] !== null),
   )
+  // Med opplastet lagoppsett vises bare personene som står i det
+  const people = only ? active.filter(p => only.has(p.id)) : active
+  const hidden = active.length - people.length
 
   // Manuelle rettelser (ligger kryptert i lagoppsettet) – kun treninger som står som «ikke svart»
   for (const [k, e] of roster) for (const c of e.corrections ?? []) {
@@ -472,7 +478,7 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
   // Kampeksporter legges til etter hovedeksporten – sorter kronologisk (statuser slås opp via idx, ikke posisjon)
   activities.sort((a, b) => a.at.getTime() - b.at.getTime() || a.idx - b.idx)
 
-  return { activities, people, missing }
+  return { activities, people, missing, hidden }
 }
 
 // ---------- statistikk ----------
