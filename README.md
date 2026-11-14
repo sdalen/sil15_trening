@@ -18,12 +18,12 @@ private/roster.json ──(npm run encrypt-roster + salt)──▶ src/data/rost
 
 Filene og saltet lagres bare i nettleseren (`localStorage`). «Fjern data» i appen sletter dem.
 
-**Alternativ: oppmøteeksporten fra Rubic.** Du kan også logge inn i Rubic og laste ned oppmøteeksporten derfra. Den har navn og påmeldinger, men ikke lag og rolle, så da **må du bruke salt**. Den mangler også det `export_all` legger til:
+**Alternativ: oppmøteeksporten fra Rubic.** Du kan også logge inn i Rubic og laste ned oppmøteeksporten derfra. Den har navn og påmeldinger, men ikke lag og rolle. **Uten salt** vises da alle som spillere uten lag (også trenere og ledere som står i eksporten). **Med salt** får de lag og rolle fra det krypterte lagoppsettet. Eksporten mangler også det `export_all` legger til:
 
 | | `npm run export_all` | Eksport fra Rubic |
 | --- | --- | --- |
 | Navn og påmeldinger | ✓ | ✓ |
-| Lag og rolle (fungerer uten salt) | ✓ | – |
+| Lag og rolle uten salt | ✓ | – (alle vises uten lag) |
 | Kategori og tittel (trening, kamp, cup, ekstra) | ✓ | – |
 | Varighet, sted og lenke til aktiviteten | ✓ | – |
 | Grunn til avslag | ✓ | – |

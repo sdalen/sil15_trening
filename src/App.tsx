@@ -128,12 +128,12 @@ export default function App() {
     document.title = `${title} – Oppmøte`
   }, [title])
   // Med salt: vent til riktig salt har låst opp lagoppsettet (Lag/Rolle fra CSV-en legges oppå).
-  // Uten salt: bare lagoppsettet fra CSV-en.
+  // Uten salt: lagoppsettet fra CSV-en – eller ingenting (vanlig Rubic-eksport), og da vises alle uten lag.
   const roster = useMemo(
-    () => (useSalt ? (sealed && sealed.size > 0 ? mergeRosters(csvRoster, sealed) : null) : hasCsvRoster ? csvRoster : null),
-    [useSalt, sealed, csvRoster, hasCsvRoster],
+    () => (useSalt ? (sealed && sealed.size > 0 ? mergeRosters(csvRoster, sealed) : null) : csvRoster),
+    [useSalt, sealed, csvRoster],
   )
-  // Uten salt og fila mangler Lag-kolonnen (vanlig Rubic-eksport) – da kan ingen få lag
+  // Uten salt og fila mangler Lag-kolonnen (vanlig Rubic-eksport) – alle vises som spillere uten lag
   const noTeams = !!csv && !useSalt && !hasCsvRoster
   // Ingen treff i det hele tatt = saltet passer ikke (eller fila er fra et annet lag)
   const wrongSalt = !!sealed && sealed.size === 0
@@ -141,13 +141,13 @@ export default function App() {
   const rosterSize = (roster?.size ?? 0) + (sealed && sealed.size > 0 ? SEALED.length - sealed.size : 0)
 
   const result = useMemo((): { model: Model | null; error?: string } => {
-    if (!csv || !roster || roster.size === 0) return { model: null }
+    if (!csv || !roster) return { model: null }
     try {
-      return { model: buildModel(csv, extraMatches, overrides, roster, rosterSize) }
+      return { model: buildModel(csv, extraMatches, overrides, roster, rosterSize, noTeams) }
     } catch (e) {
       return { model: null, error: (e as Error).message }
     }
-  }, [csv, extraMatches, overrides, roster, rosterSize])
+  }, [csv, extraMatches, overrides, roster, rosterSize, noTeams])
   const model = result.model
 
   const ctx = useMemo<Ctx | null>(() => {
@@ -270,7 +270,7 @@ export default function App() {
                 {title} <span className="text-sh-yellow">Oppmøte</span>
               </h1>
               <p className="truncate text-[11px] text-white/55">
-                {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i støtteapparat · {model.activities.length} aktiviteter
+                {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} {noTeams ? 'personer uten lag' : 'spillere'} · {model.people.filter(p => p.kind === 'stab').length} i støtteapparat · {model.activities.length} aktiviteter
               </p>
             </div>
             <label className={GHOST} title="Legg til CSV">
@@ -476,7 +476,7 @@ function Landing(props: {
             </label>
             {noTeams && (
               <p className="mt-2 text-sm text-rose-200">
-                Fila har ikke kolonnen «Lag». Bruk en fil fra npm run export_all, eller kryss av for salt.
+                Fila har ikke kolonnen «Lag» (eksport rett fra Rubic). Alle vises uten lag – bruk en fil fra npm run export_all, eller kryss av for salt, for å få lag.
               </p>
             )}
           </li>

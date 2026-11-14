@@ -303,8 +303,9 @@ export function mergeRosters(fromCsv: Map<string, RosterEntry>, sealed: Map<stri
 /**
  * @param roster  Opplåst lagoppsett (nøkkel = fold(fullt navn)), se rosterCrypto.unlock
  * @param rosterSize  Antall personer i det krypterte lagoppsettet
+ * @param allPlayers  Ingen laginfo (Rubic-eksport uten salt): alle uten stabsrolle regnes som spillere, uten lag
  */
-export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Overrides, roster: Map<string, RosterEntry>, rosterSize: number): Model {
+export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Overrides, roster: Map<string, RosterEntry>, rosterSize: number, allPlayers = false): Model {
   const base = parseExport(main.text)
   const matches = matchFiles.map(f => ({ f, x: parseExport(f.text) }))
 
@@ -349,7 +350,7 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
     const p: Person = {
       id,
       name,
-      kind: teamId ? 'spiller' : st ? 'stab' : 'annen',
+      kind: teamId ? 'spiller' : st ? 'stab' : allPlayers ? 'spiller' : 'annen',
       teamId,
       role: st?.role ?? null,
       staffTeam: st?.team ?? null,
