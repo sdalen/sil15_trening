@@ -92,6 +92,8 @@ const CANCELLED = new Set([
 ])
 
 interface ParsedExport {
+  /** Gruppenavnet fra scripts/rubic-csv.mjs («Navn [gruppe:Team 2015]»), brukes som tittel i appen */
+  group?: string
   /** label = tekst etter klokkeslettet i overskriften, f.eks. kategorien fra local/rubic-csv.mjs («Cup») */
   cols: { date: string; time: string; label: string }[]
   /**
@@ -121,6 +123,7 @@ export function parseExport(text: string): ParsedExport {
   })
   if (!cols.length) throw new Error('Fant ingen datokolonner. Er dette en oppmøteeksport fra Rubic?')
   return {
+    group: header[nameCol]?.match(/\[gruppe:([^\]]+)\]/)?.[1]?.trim(),
     cols,
     rows: body
       .map(r => ({
@@ -188,7 +191,9 @@ export function mergeExports(oldText: string, newText: string): string {
   }
   const cell = (v: string) => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
   const extra = [...people.values()].some(p => p.team || p.role)
-  const header = ['Navn', 'Totalt', ...(extra ? ['Lag', 'Rolle'] : []), ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})${c.label ? ` ${c.label}` : ''}`)]
+  // Gruppenavnet (tittelen) følger med: nyeste fil vinner, en vanlig Rubic-eksport uten navn visker det ikke ut
+  const group = b.group ?? a.group
+  const header = [group ? `Navn [gruppe:${group}]` : 'Navn', 'Totalt', ...(extra ? ['Lag', 'Rolle'] : []), ...cols.map(c => `${c.date.slice(8, 10)}.${c.date.slice(5, 7)}.${c.date.slice(0, 4)} (${c.time})${c.label ? ` ${c.label}` : ''}`)]
   const lines = [header, ...[...people.values()].map(p => [p.name, p.total, ...(extra ? [p.team, p.role] : []), ...p.codes.map((s, i) => (s ? UNCODE[s] + (p.notes[i] ? ` | ${p.notes[i]}` : '') : ''))])]
   return lines.map(l => l.map(cell).join(',')).join('\n') + '\n'
 }

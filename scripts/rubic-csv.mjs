@@ -384,7 +384,10 @@ if (withTeams) {
   console.error(`Spillere per lag fra Rubic:`, t, `· stab med rolle: ${[...people.values()].filter(p => p.role).length}`)
   if (!LAG.size) console.error('  (Ingen grupper med type «lag» valgt – kolonnen «Lag» blir tom.)')
 }
-const header = ['Navn', 'Totalt', ...(withTeams ? ['Lag', 'Rolle'] : []), ...keep.map(a => `${local(a.startDate).header} ${category(a)} · ${EXTRA.get(a.organizationID) ?? a.title.replace(/\s+/g, ' ').trim()}${meta(a)}`)]
+// Navnet på hovedgruppa («Team 2015») legges i første overskrift – appen bruker det som tittel
+const mainOrg = groups?.find(g => g.type === 'oppmøte')?.id ?? orgs[0]
+const groupName = ((await api(`/activityapi/organization/${mainOrg}`, undefined, { soft: true }))?.organizationName ?? '').replace(/[\[\]]/g, '').trim()
+const header = [groupName ? `Navn [gruppe:${groupName}]` : 'Navn', 'Totalt', ...(withTeams ? ['Lag', 'Rolle'] : []), ...keep.map(a => `${local(a.startDate).header} ${category(a)} · ${EXTRA.get(a.organizationID) ?? a.title.replace(/\s+/g, ' ').trim()}${meta(a)}`)]
 const rows = [...people.values()]
   .sort((x, y) => x.name.localeCompare(y.name, 'nb'))
   .map(p => {

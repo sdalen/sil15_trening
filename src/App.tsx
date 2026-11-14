@@ -116,6 +116,17 @@ export default function App() {
     }
   }, [csv, extraMatches])
   const hasCsvRoster = csvRoster.size > 0
+  // Tittel fra gruppenavnet i eksporten («Team 2015»), ellers U12
+  const title = useMemo(() => {
+    try {
+      return (csv && parseExport(csv.text).group) || 'U12'
+    } catch {
+      return 'U12'
+    }
+  }, [csv])
+  useEffect(() => {
+    document.title = `${title} – Oppmøte`
+  }, [title])
   // Med salt: vent til riktig salt har låst opp lagoppsettet (Lag/Rolle fra CSV-en legges oppå).
   // Uten salt: bare lagoppsettet fra CSV-en.
   const roster = useMemo(
@@ -229,6 +240,7 @@ export default function App() {
       <Landing
         onInfo={() => setShowInfo(true)}
         onFurnes={() => setFurnes(true)}
+        title={title}
         csvName={csv ? ((csv.files?.length ?? 1) > 1 ? `${csv.files!.length} filer` : csv.name) : null}
         salt={salt}
         wrongSalt={wrongSalt}
@@ -255,7 +267,7 @@ export default function App() {
             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="h-9 w-auto shrink-0 drop-shadow sm:h-10" />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-lg leading-tight font-extrabold tracking-tight">
-                U12 <span className="text-sh-yellow">Oppmøte</span>
+                {title} <span className="text-sh-yellow">Oppmøte</span>
               </h1>
               <p className="truncate text-[11px] text-white/55">
                 {csv && (csv.files?.length ?? 1) > 1 ? `${csv.files!.length} Rubic-filer` : (csv?.name ?? 'Rubic-eksport')} · {model.people.filter(p => p.kind === 'spiller').length} spillere · {model.people.filter(p => p.kind === 'stab').length} i støtteapparat · {model.activities.length} aktiviteter
@@ -406,6 +418,8 @@ function Landing(props: {
   csvName: string | null
   salt: string
   wrongSalt: boolean
+  /** Gruppenavnet fra eksporten («Team 2015»), ellers U12 */
+  title: string
   /** Haken «Bruk salt»: kryptert lagoppsett, eller bare Lag/Rolle fra CSV-en */
   useSalt: boolean
   onUseSalt: (v: boolean) => void
@@ -419,7 +433,7 @@ function Landing(props: {
   onFurnes: () => void
   onInfo: () => void
 }) {
-  const { csvName, salt, wrongSalt, useSalt, onUseSalt, noTeams, loading, error, onSalt, onUpload, onClear, onFurnes, onInfo } = props
+  const { title, csvName, salt, wrongSalt, useSalt, onUseSalt, noTeams, loading, error, onSalt, onUpload, onClear, onFurnes, onInfo } = props
   const [draft, setDraft] = useState('')
   const needSalt = !salt || wrongSalt
   return (
@@ -428,7 +442,7 @@ function Landing(props: {
       <div className="w-full max-w-md space-y-5 text-center">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Storhamar Yngres" className="mx-auto h-20 w-auto drop-shadow" />
         <h1 className="text-2xl font-black tracking-wide">
-          U12 <span className="text-sh-yellow">Oppmøte</span>
+          {title} <span className="text-sh-yellow">Oppmøte</span>
         </h1>
         <p className="text-sm text-white/80">
           Last inn oppmøteeksporten fra Rubic (CSV), og velg om du vil bruke saltet du har fått av trenerne. Alt lagres bare i denne nettleseren – ingenting sendes noe sted.
