@@ -1,19 +1,52 @@
 # Sette opp laget
 
-Appen trenger å vite hvilket lag hver spiller går på, og hvem som er trenere og ledere. Det kan komme fra to steder:
+Appen trenger å vite hvilket lag hver spiller går på, hvem som er trenere og ledere, og gjerne draktnummer. Det kan komme fra tre steder:
 
-| | Fra Rubic (`npm run export_all`) | Kryptert lagoppsett (`npm run encrypt-roster`) |
-| --- | --- | --- |
-| Oppsett | Ingen: lag og roller hentes fra Rubic | `private/roster.json` som du vedlikeholder selv |
-| Lag og rolle | ✓ | ✓ |
-| Draktnummer, kallenavn, keeperdrakt | – | ✓ |
-| Manuelle rettelser av oppmøte | – | ✓ |
-| Skjule spillere som har sluttet | – | ✓ |
-| I appen | Uten salt | Med salt (haken «Bruk salt») |
+| | Fra Rubic (`npm run export_all`) | Eget lagoppsett (CSV) | Kryptert lagoppsett (salt) |
+| --- | --- | --- | --- |
+| Oppsett | Ingen | En CSV du lager selv (mal fra `export_all`) | `private/roster.json` + `npm run encrypt-roster` |
+| Lag og rolle | ✓ | ✓ | ✓ |
+| Draktnummer | – | ✓ | ✓ |
+| Kallenavn, keeperdrakt | – | – | ✓ |
+| Manuelle rettelser av oppmøte | – | – | ✓ |
+| Skjule spillere som har sluttet | – | – | ✓ |
+| Ligger | I oppmøte-CSV-en | I nettleseren (lastes opp) | Kryptert i git |
 
-Holder det med lag og roller, trenger du ikke gjøre noe annet enn å kjøre `npm run export_all` (se [README](README.md)). Resten av dette dokumentet handler om det krypterte lagoppsettet og om hvordan lagene er definert i koden.
+Lag og rolle fra Rubic vinner alltid når de finnes. Lagoppsettet legger draktnummer (og det andre) på toppen.
 
-## 1. Lagoppsettet: `private/roster.json`
+**For de fleste lag holder det med et eget lagoppsett som CSV.** Det krypterte lagoppsettet er for når du vil ha rettelser og kallenavn, og vil at trenerne bare skal trenge et salt.
+
+## Eget lagoppsett som CSV (anbefalt)
+
+```csv
+Navn,Lag,Nr,Rolle
+Ola Nordmann,Hvit,17,Spiller
+Per Olsen Hansen,Rød,30,Spiller
+Kari Nordmann,,,Hovedtrener
+Lise Berg,Blå,,Lagleder
+```
+
+| Kolonne | Betydning |
+| --- | --- |
+| `Navn` | **Fullt navn nøyaktig slik det står i Rubic** (påkrevd). Store og små bokstaver og aksenter spiller ingen rolle. |
+| `Lag` | Hvit, Rød, Blå eller Gul (se [Lagene](#lagene-srcdatasil15js)). Tom for trenere og ledere som gjelder hele årgangen. |
+| `Nr` | Draktnummer (tom hvis ukjent) |
+| `Rolle` | `Spiller` (eller tom), `Hovedtrener`, `Trener`, `Lagleder` eller `Materialforvalter` |
+
+Rekkefølgen på kolonnene spiller ingen rolle. Spillere uten lag hoppes over. Ukjent lag eller rolle gir en feilmelding med linjenummer.
+
+**Slik gjør du:**
+
+1. Kjør `npm run export_all`. Ved siden av oppmøtefila lagres `lagoppsett_mal_kl<tid>.csv` med navn, lag og rolle fra Rubic.
+2. Åpne malen i Excel eller Numbers, fyll inn `Nr`, og lagre som CSV.
+3. Last opp fila i appen med samme knapp som oppmøte-CSV-en. Appen kjenner den igjen på kolonnene. Haken for salt byttes ut med «Lagoppsett: <fil>».
+4. Del fila med de andre trenerne på samme måte som oppmøte-CSV-en. Den inneholder navn, så den skal ikke i git.
+
+Lagoppsettet fungerer også med eksporten rett fra Rubic (uten Lag-kolonnen). Da kommer lag og rolle fra lagoppsettet. «📄 <fil>» øverst i appen fjerner det igjen.
+
+## Kryptert lagoppsett
+
+### 1. Lagoppsettet: `private/roster.json`
 
 `private/` står i `.gitignore`, så fila med navn i klartekst havner aldri i git. Den må kopieres manuelt mellom maskiner.
 
@@ -51,12 +84,12 @@ Fila er en liste med én oppføring per person:
 ]
 ```
 
-### Felter
+#### Felter
 
 | Felt | Betydning |
 | --- | --- |
 | `full` | **Fullt navn nøyaktig slik det står i Rubic.** Det er nøkkelen både for krypteringen og for å finne personen i CSV-en. Store og små bokstaver og aksenter spiller ingen rolle, men stavingen må være lik. |
-| `player.team` | Laget: `hvit`, `rod`, `bla` eller `gul` (se [Lagene](#3-lagene-srcdatasil15js)) |
+| `player.team` | Laget: `hvit`, `rod`, `bla` eller `gul` (se [Lagene](#lagene-srcdatasil15js)) |
 | `player.short` | Navnet som vises i lister, for eksempel fornavn eller «Per OH» |
 | `player.nr` | Draktnummer som tekst (`"17"`), eller `null` |
 | `player.note` | Keeperdrakt, på formen `"K 1"` (vises som «keeperdrakt nr 1») |
@@ -69,7 +102,7 @@ Fila er en liste med én oppføring per person:
 
 En person har enten `player` eller `staff`, ikke begge. Felter som ikke trengs, kan utelates.
 
-## 2. Kryptere: `npm run encrypt-roster`
+### 2. Kryptere: `npm run encrypt-roster`
 
 ```sh
 npm run encrypt-roster
@@ -82,14 +115,14 @@ npm run encrypt-roster
 
 Skriptet må kjøres i en vanlig terminal, fordi saltet skrives inn med tastaturet.
 
-### Slik fungerer krypteringen
+#### Slik fungerer krypteringen
 
 - Hver person krypteres for seg (AES-GCM), med en nøkkel avledet fra **fullt navn + saltet** (PBKDF2, 100 000 runder).
 - Rekkefølgen i fila stokkes, så posisjonen ikke røper noe.
 - Appen låser bare opp personer som står i CSV-en som lastes opp, og bare med riktig salt. Uten både navnet og saltet kan ingen lese en oppføring.
 - Feil salt gir ingen treff, og appen sier «Saltet passer ikke med fila».
 
-### Endringer senere
+#### Endringer senere
 
 - **Ny spiller, lagbytte, nytt draktnummer:** rediger `private/roster.json`, kjør `npm run encrypt-roster` med **samme salt**, og commit `roster.enc.json`.
 - **Nytt salt** (for eksempel når noen ikke lenger skal ha tilgang): kjør skriptet med et nytt salt og gi det nye saltet til dem som skal ha det. Det gamle slutter å virke.
@@ -97,7 +130,7 @@ Skriptet må kjøres i en vanlig terminal, fordi saltet skrives inn med tastatur
 
 Når CSV-en også har lag og rolle fra Rubic (`npm run export_all`), vinner Rubic for lag og rolle. Draktnummer, kallenavn og rettelser hentes fortsatt fra det krypterte lagoppsettet, men draktnummeret bare så lenge laget er det samme.
 
-## 3. Lagene: `src/data/sil15.js`
+## Lagene: `src/data/sil15.js`
 
 Lagene er definert i `teams`:
 

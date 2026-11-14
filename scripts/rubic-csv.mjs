@@ -388,6 +388,19 @@ const out = outFile()
 writeFileSync(out, [header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n')
 console.error(`Skrev ${rows.length} personer × ${keep.length} aktiviteter til ${out}`)
 
+// Mal for lagoppsett (Navn,Lag,Nr,Rolle) med lag og rolle fra Rubic – fyll inn Nr og last opp i appen
+if (withTeams) {
+  const simpleRole = r => (/hovedtrener/i.test(r) ? 'Hovedtrener' : /trener/i.test(r) ? 'Trener' : /lagleder/i.test(r) ? 'Lagleder' : /materialforvalter/i.test(r) ? 'Materialforvalter' : '')
+  const order = { Spiller: 0, Hovedtrener: 1, Trener: 2, Lagleder: 3, Materialforvalter: 4 }
+  const lines = [...people.values()]
+    .map(p => ({ name: p.name, team: p.team, role: simpleRole(p.role) || (p.team ? 'Spiller' : '') }))
+    .filter(p => p.role)
+    .sort((x, y) => order[x.role] - order[y.role] || x.team.localeCompare(y.team, 'nb') || x.name.localeCompare(y.name, 'nb'))
+  const mal = join(dirname(out), `lagoppsett_mal_kl${stamp}.csv`)
+  writeFileSync(mal, [['Navn', 'Lag', 'Nr', 'Rolle'], ...lines.map(p => [p.name, p.team, '', p.role])].map(r => r.map(cell).join(',')).join('\n') + '\n')
+  console.error(`Skrev mal for lagoppsett (${lines.length} personer, fyll inn Nr) til ${mal}`)
+}
+
 function die(msg) {
   console.error(msg)
   process.exit(1)

@@ -14,7 +14,7 @@ private/roster.json ──(npm run encrypt-roster + salt)──▶ src/data/rost
 
 1. **Hent oppmøte fra Rubic** med `npm run export_all`. Velg barn og grupper, så lagres en CSV-fil med navn, lag og rolle i `~/Downloads`.
 2. **Last opp CSV-en i appen.** «Legg til CSV» fyller på: nye aktiviteter legges til, og eksisterende oppdateres fra den nyeste fila.
-3. **Velg med eller uten salt.** Uten salt brukes lag og roller fra CSV-en. Med salt legges draktnummer, kallenavn og rettelser fra det krypterte lagoppsettet på toppen.
+3. **Legg til draktnummer (valgfritt).** Last opp et lagoppsett (`Navn,Lag,Nr,Rolle`, mal fra `export_all`), eller bruk saltet for det krypterte lagoppsettet. Se [LAGOPPSETT.md](LAGOPPSETT.md).
 
 Filene og saltet lagres bare i nettleseren (`localStorage`). «Fjern data» i appen sletter dem.
 
@@ -32,7 +32,7 @@ Filene og saltet lagres bare i nettleseren (`localStorage`). «Fjern data» i ap
 
 Begge kan kombineres med «Legg til CSV». Lag, rolle, kategori og grunner fra en `export_all`-fil blir stående om du legger en Rubic-eksport oppå.
 
-> **Lagspesifikt:** lagene og fargene deres (Hvit, Rød, Blå, Gul) og serieoppsettet ligger i `src/data/sil15.js`, og logoen i `public/`. Skal appen brukes for et annet lag, må disse byttes ut. Se [LAGOPPSETT.md](LAGOPPSETT.md#3-lagene-srcdatasil15js).
+> **Lagspesifikt:** lagene og fargene deres (Hvit, Rød, Blå, Gul) og serieoppsettet ligger i `src/data/sil15.js`, og logoen i `public/`. Skal appen brukes for et annet lag, må disse byttes ut. Se [LAGOPPSETT.md](LAGOPPSETT.md#lagene-srcdatasil15js).
 
 ## Kom i gang
 

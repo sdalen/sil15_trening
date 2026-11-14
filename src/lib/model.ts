@@ -257,6 +257,48 @@ function staffRole(role: string): StaffRole | null {
 }
 
 /**
+ * Er dette et lagoppsett (Navn,Lag,Nr,Rolle) og ikke en oppmøteeksport? Kjennes på kolonnene og at det ikke er datokolonner.
+ */
+export function isRosterCsv(text: string): boolean {
+  const header = parseCsv(text)[0] ?? []
+  const has = (re: RegExp) => header.some(h => re.test(h.trim()))
+  return has(/^navn$/i) && (has(/^lag$/i) || has(/^nr$/i)) && !header.some(h => /\d{1,2}\.\d{1,2}\.\d{4}\s*\(/.test(h))
+}
+
+/**
+ * Leser et lagoppsett som CSV: «Navn,Lag,Nr,Rolle» (rekkefølgen spiller ingen rolle, bare Navn er påkrevd).
+ * Rolle: Spiller (eller tom), Hovedtrener, Trener, Lagleder, Materialforvalter. Lag: kortnavn som «Hvit».
+ * Lagoppsettet lagres bare i nettleseren – ingen kryptering trengs.
+ */
+export function parseRosterCsv(text: string): Map<string, RosterEntry> {
+  const rows = parseCsv(text).filter(r => r.some(c => c.trim()))
+  if (rows.length < 2) throw new Error('Fant ingen personer i lagoppsettet.')
+  const [header, ...body] = rows
+  const col = (re: RegExp) => header.findIndex(h => re.test(h.trim()))
+  const [nameCol, teamCol, nrCol, roleCol] = [col(/^navn$/i), col(/^lag$/i), col(/^nr$/i), col(/^rolle$/i)]
+  if (nameCol < 0) throw new Error('Lagoppsettet mangler kolonnen «Navn».')
+  const byFold = new Map(teams.flatMap(t => [[fold(t.short), t.id], [fold(t.name), t.id], [t.id as string, t.id]]))
+  const roster = new Map<string, RosterEntry>()
+  body.forEach((r, i) => {
+    const name = norm(r[nameCol] ?? '')
+    if (!name) return
+    const cell = (c: number) => (c >= 0 ? norm(r[c] ?? '') : '')
+    const teamText = cell(teamCol)
+    const team = teamText ? byFold.get(fold(teamText)) : undefined
+    if (teamText && !team) throw new Error(`Linje ${i + 2}: ukjent lag «${teamText}». Gyldige lag: ${teams.map(t => t.short).join(', ')}.`)
+    const roleText = cell(roleCol)
+    const role = roleText && !/^spiller$/i.test(roleText) ? staffRole(roleText) : null
+    if (roleText && !role && !/^spiller$/i.test(roleText)) throw new Error(`Linje ${i + 2}: ukjent rolle «${roleText}». Bruk Spiller, Hovedtrener, Trener, Lagleder eller Materialforvalter.`)
+    const e: RosterEntry = { full: name }
+    if (role) e.staff = { role, team: team ?? null }
+    else if (team) e.player = { team, short: name.split(' ')[0], nr: cell(nrCol) || null }
+    else return // spiller uten lag – ingenting å legge til
+    roster.set(fold(name), e)
+  })
+  return roster
+}
+
+/**
  * Lagoppsett rett fra CSV-en (kolonnene «Lag» og «Rolle» fra scripts/rubic-csv.mjs), uten salt.
  * Lag = kortnavnet på laget i Rubic («Hvit», «Rød» …), som matches mot lagene i sil15.js.
  * Tomt kart når fila ikke har kolonnene (vanlig Rubic-eksport) – da trengs det krypterte lagoppsettet.
