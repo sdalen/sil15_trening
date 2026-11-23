@@ -1,4 +1,4 @@
 {
   "_info": "Rubic personID for spillere som har sluttet. De holdes utenfor eksporten (npm run export og export_all). Bare id-er, ingen navn.",
-  "personID": [1157808, 1010713]
+  "personID": [1157808, 1010713, 1778915]
 }
