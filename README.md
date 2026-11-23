@@ -137,6 +137,8 @@ node scripts/rubic-csv.mjs --from 2026-08-01 --to 2026-11-12
 | `--kun-spillere` | Dropp lagledere og administratorer |
 | `--stall 20718` | Bare personer som er invitert til minst halvparten av treningene i den organisasjonen |
 
+Spillere som har sluttet, legges inn med Rubic-`personID` i [`scripts/sluttet.json`](scripts/sluttet.json) og holdes utenfor eksporten. Fila har bare id-er, ingen navn.
+
 Avlyste aktiviteter holdes alltid utenfor. Kategori (Trening, Kamp, Cup, Treningskamp, Sommertrening, Ekstra, Annet) bestemmes ut fra tittelen og legges bak datoen i kolonneoverskriften, sammen med varighet, sted og Rubic-lenke. Appen leser dette tilbake.
 
 ## Lagoppsettet (`npm run encrypt-roster`)

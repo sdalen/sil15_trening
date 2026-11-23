@@ -343,6 +343,12 @@ for (const [i, a] of keep.entries()) {
 }
 console.error(`\nattendanceStatus-fordeling:`, Object.fromEntries(attendance))
 
+// Spillere som har sluttet (Rubic personID i scripts/sluttet.json) tas ikke med
+const quitFile = join(HERE, 'sluttet.json')
+const quit = existsSync(quitFile) ? (JSON.parse(readFileSync(quitFile, 'utf8')).personID ?? []) : []
+const dropped = quit.filter(id => people.delete(id)).length
+if (dropped) console.error(`Holder utenfor ${dropped} som har sluttet (${quitFile})`)
+
 // --stall <org>: bare personer som er invitert til minst halvparten av treningene i den organisasjonen
 // (f.eks. 20718 = Gutter 2015). Holder ute 2014-gutter, jenter og andre som bare er med på enkeltaktiviteter.
 if (args.stall) {
