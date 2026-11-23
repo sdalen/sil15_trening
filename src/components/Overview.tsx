@@ -178,9 +178,65 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
         </Card>
       </div>
 
+      <TopBottomByTeam ranked={ranked} />
+
       <Unregistered ctx={ctx} />
       <DataQuality ctx={ctx} />
     </div>
+  )
+}
+
+/**
+ * Hvor mange spillere hvert lag har blant de 20 med best og de 20 med dårligst oppmøte.
+ * Med færre enn 40 spillere kan noen være med i begge.
+ */
+function TopBottomByTeam({ ranked }: { ranked: { p: Person; s: { pct: number | null } }[] }) {
+  const players = ranked.filter(x => x.p.kind === 'spiller')
+  const n = Math.min(20, players.length)
+  if (players.length < 6) return null
+  const top = players.slice(0, n)
+  const bottom = players.slice(-n)
+  const ids: (TeamId | null)[] = [...teams.map(t => t.id), null]
+  const rows = ids
+    .map(id => ({
+      id,
+      total: players.filter(x => x.p.teamId === id).length,
+      top: top.filter(x => x.p.teamId === id).length,
+      bottom: bottom.filter(x => x.p.teamId === id).length,
+    }))
+    .filter(r => r.total > 0)
+  const max = Math.max(1, ...rows.map(r => Math.max(r.top, r.bottom)))
+  return (
+    <Card title={`Oppmøte per lag: topp ${n} og bunn ${n}`} right={`av ${players.length} spillere`}>
+      <ul className="divide-y divide-slate-100">
+        <li className="flex items-center gap-3 px-4 pt-1 pb-1.5 text-[11px] font-semibold tracking-wide text-slate-400 uppercase" aria-hidden="true">
+          <span className="w-20 shrink-0">Lag</span>
+          <span className="flex-1 text-right">Best oppmøte (topp {n})</span>
+          <span className="w-px" />
+          <span className="flex-1">Lavest oppmøte (bunn {n})</span>
+          <span className="hidden w-16 shrink-0 text-right sm:inline">Spillere</span>
+        </li>
+        {rows.map(r => (
+          <li key={r.id ?? 'none'} className="flex items-center gap-3 px-4 py-2 text-sm" title={`${r.top} av lagets ${r.total} spillere er blant de ${n} med best oppmøte, ${r.bottom} blant de ${n} med lavest oppmøte`}>
+            <span className="w-20 shrink-0"><TeamBadge teamId={r.id} /></span>
+            <span className="flex flex-1 items-center justify-end gap-2">
+              <span className="font-bold tabular-nums text-emerald-700">{r.top}</span>
+              <span className="h-3 rounded-l bg-emerald-500" style={{ width: `${(r.top / max) * 70}%` }} />
+            </span>
+            <span className="h-5 w-px bg-slate-300" />
+            <span className="flex flex-1 items-center gap-2">
+              <span className="h-3 rounded-r bg-rose-400" style={{ width: `${(r.bottom / max) * 70}%` }} />
+              <span className="font-bold tabular-nums text-rose-700">{r.bottom}</span>
+            </span>
+            <span className="hidden w-16 shrink-0 text-right text-xs text-slate-500 tabular-nums sm:inline">{r.total}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+        Bare oppmøte, ikke ferdigheter: spillerne er rangert på oppmøteprosent i valgt periode, samme rekkefølge som «Høyest/Lavest oppmøte».
+        {players.length < 2 * n && ` Med ${players.length} spillere er ${2 * n - players.length} med i begge.`}
+      </p>
+    </Card>
   )
 }
 
