@@ -492,9 +492,12 @@ export const APPROVED_REASON = /fotball|futsal|hockey|syk|obos/i
  */
 export const HOCKEY_SEASON_START = '2026-10-01'
 
-/** Godkjent grunn for avslag på en hockeyaktivitet: syk, begravelse og Obos-turnering alltid, jobb for støtteapparat, fotball/futsal bare før hockeysesongen */
+/** Hockey med en annen årgang («Er med U13 til Halden», «spiller med 2014») – alltid godkjent fravær */
+export const OTHER_AGE_GROUP = /\bu\s?1\d\b|årgang|\b20(0\d|1[0-46-9])\b|spiller opp|eldre lag/i
+
+/** Godkjent grunn for avslag på en hockeyaktivitet: syk, begravelse, Obos-turnering og annen årgang alltid, jobb for støtteapparat, fotball/futsal bare før hockeysesongen */
 export function approvedReason(reason: string, date: string, staff = false) {
-  if (/syk|begravelse|obos/i.test(reason)) return true
+  if (/syk|begravelse|obos/i.test(reason) || OTHER_AGE_GROUP.test(reason)) return true
   if (staff && /jobb/i.test(reason)) return true
   return /fotball|futsal/i.test(reason) && date < HOCKEY_SEASON_START
 }
@@ -506,6 +509,7 @@ export const isApproved = (p: Person, a: Pick<Activity, 'idx' | 'date'>) => p.st
  */
 export const REASON_CATEGORIES = [
   { key: 'syk', label: 'Syk eller skadet', re: /syk|sjuk|forkj[øoö]l|skad|vond|forstu|vaksin|magesjau|frisk|form\b|legevakt|tannlege|slått|uheldig|feber|omgangs/i },
+  { key: 'aargang', label: 'Hockey med annen årgang', re: OTHER_AGE_GROUP },
   { key: 'idrett', label: 'Fotball og annen idrett', re: /fotb|foppal|futsal|kamp|cup|turnering|golf|friidrett|innebandy|bordtennis|håndball|\bski|svøm|cross|trening selv|egen trening/i },
   { key: 'reise', label: 'Reise, ferie og hytte', re: /reis|bortr|borte|ferie|hytt|tur\b|oslo|london|utland/i },
   { key: 'familie', label: 'Familie og sosialt', re: /bursdag|dåp|begravelse|famil|diskotek|foreldresamtale|konfirmasjon|bryllup|selskap/i },
