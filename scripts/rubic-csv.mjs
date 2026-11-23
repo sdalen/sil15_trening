@@ -82,7 +82,8 @@ const EXPIRED = `
 async function api(url, body, { soft = false } = {}) {
   const res = await fetch(url.startsWith('http') ? url : BASE + url, {
     method: body ? 'POST' : 'GET',
-    headers: { cookie, accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) },
+    // Rubic svarer 401 på API-kall uten X-CSRF: 1, selv med gyldig cookie (nettleseren sender den selv)
+    headers: { cookie, accept: 'application/json', 'x-csrf': '1', ...(body ? { 'content-type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   })
   // Utløpt cookie gir 401/403, eller en omdirigering til innloggingssiden (HTML i stedet for JSON)
