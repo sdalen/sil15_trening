@@ -1,4 +1,4 @@
-import { countStatuses, countsInStats, iceMinutes, personIceMinutes, type Activity, type Person } from '../lib/model'
+import { countStatuses, countsInStats, iceMinutes, personIceMinutes, reasonCategory, REASON_LABEL, type Activity, type Person, type ReasonCategory } from '../lib/model'
 import { hoursText, pctText, shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { Card, Empty, NrBadge, Pii } from './common'
@@ -81,6 +81,25 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
   }).filter(x => x.offered > 0 || x.avg > 0)
   const monthMax = Math.max(1, ...iceMonths.map(x => Math.max(x.avg, x.offered)))
 
+  // Hvorfor kommer ikke spillerne? Avslag på passerte treninger, gruppert etter grunnen i Rubic
+  const declines = new Map<ReasonCategory, { n: number; texts: Map<string, number> }>()
+  for (const a of trainActs)
+    for (const p of people) {
+      if (p.statuses[a.idx] !== 'nei') continue
+      const text = (p.reasons[a.idx] ?? '').trim()
+      const k = reasonCategory(text)
+      const d = declines.get(k) ?? { n: 0, texts: new Map<string, number>() }
+      d.n++
+      if (k !== 'uten') d.texts.set(text, (d.texts.get(text) ?? 0) + 1)
+      declines.set(k, d)
+    }
+  const declineTotal = [...declines.values()].reduce((s, d) => s + d.n, 0)
+  // Største kategori øverst, men «Annet» og «Uten grunn» alltid nederst
+  const declineRows = [...declines]
+    .map(([k, d]) => ({ k, ...d }))
+    .sort((x, y) => Number(x.k === 'annet' || x.k === 'uten') - Number(y.k === 'annet' || y.k === 'uten') || Number(x.k === 'uten') - Number(y.k === 'uten') || y.n - x.n)
+  const declineMax = Math.max(1, ...declineRows.map(r => r.n))
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -100,6 +119,43 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
               <> ({Math.round(Math.abs(weekday.avgPct - weekend.avgPct) * 100)} prosentpoeng høyere oppmøte)</>
             )}
             .
+          </p>
+        </Card>
+      )}
+
+      {declineTotal > 0 && (
+        <Card title="Hvorfor kommer ikke spillerne?" right={`${declineTotal} avslag på treninger · klikk for grunnene`}>
+          <ul className="divide-y divide-slate-100">
+            {declineRows.map(r => (
+              <li key={r.k}>
+                <details className="group">
+                  <summary className={`flex list-none items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50 ${r.texts.size ? 'cursor-pointer' : ''}`}>
+                    <span className="w-44 shrink-0 font-medium">
+                      {r.texts.size > 0 && <span className="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">›</span>}
+                      {REASON_LABEL[r.k]}
+                    </span>
+                    <span className="relative h-3 flex-1">
+                      <span className={`absolute inset-y-0 left-0 rounded-r ${r.k === 'uten' ? 'bg-slate-300' : 'bg-rose-400'}`} style={{ width: `${(r.n / declineMax) * 100}%` }} />
+                    </span>
+                    <span className="w-12 shrink-0 text-right font-bold tabular-nums">{r.n}</span>
+                    <span className="w-12 shrink-0 text-right text-xs text-slate-500 tabular-nums">{Math.round((r.n / declineTotal) * 100)} %</span>
+                  </summary>
+                  {r.texts.size > 0 && (
+                    <ul className="space-y-0.5 bg-slate-50 px-4 py-2 pl-9 text-xs text-slate-600">
+                      {[...r.texts].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'nb')).map(([t, n]) => (
+                        <li key={t} className="flex gap-2">
+                          <span className="min-w-0 flex-1"><Pii>{t}</Pii></span>
+                          <span className="shrink-0 tabular-nums text-slate-400">{n}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+              </li>
+            ))}
+          </ul>
+          <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+            Passerte treninger i valgt periode, for utvalget over. «Uten grunn» er avslag der det ikke står noe i Rubic.
           </p>
         </Card>
       )}

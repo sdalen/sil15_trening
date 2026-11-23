@@ -500,6 +500,30 @@ export function approvedReason(reason: string, date: string, staff = false) {
 }
 export const isApproved = (p: Person, a: Pick<Activity, 'idx' | 'date'>) => p.statuses[a.idx] === 'nei' && approvedReason(p.reasons[a.idx] ?? '', a.date, p.kind !== 'spiller')
 
+/**
+ * Hvorfor kommer ikke spillerne? Grunnen til avslaget (fritekst fra Rubic) sortert i kategorier.
+ * Rekkefølgen teller: første treff vinner («forkjøla, kommer på møte» er sykdom, «jobbreise» er reise).
+ */
+export const REASON_CATEGORIES = [
+  { key: 'syk', label: 'Syk eller skadet', re: /syk|sjuk|forkj[øoö]l|skad|vond|forstu|vaksin|magesjau|frisk|form\b|legevakt|tannlege|slått|uheldig|feber|omgangs/i },
+  { key: 'idrett', label: 'Fotball og annen idrett', re: /fotb|foppal|futsal|kamp|cup|turnering|golf|friidrett|innebandy|bordtennis|håndball|\bski|svøm|cross|trening selv|egen trening/i },
+  { key: 'reise', label: 'Reise, ferie og hytte', re: /reis|bortr|borte|ferie|hytt|tur\b|oslo|london|utland/i },
+  { key: 'familie', label: 'Familie og sosialt', re: /bursdag|dåp|begravelse|famil|diskotek|foreldresamtale|konfirmasjon|bryllup|selskap/i },
+  { key: 'jobb', label: 'Jobb', re: /jobb|overtid|konferanse|arbeid/i },
+] as const
+export type ReasonCategory = (typeof REASON_CATEGORIES)[number]['key'] | 'annet' | 'uten'
+export const REASON_LABEL: Record<ReasonCategory, string> = {
+  ...(Object.fromEntries(REASON_CATEGORIES.map(c => [c.key, c.label])) as Record<(typeof REASON_CATEGORIES)[number]['key'], string>),
+  annet: 'Annet',
+  uten: 'Uten grunn',
+}
+/** Tom grunn (eller bare tegnsetting) = «uten grunn» */
+export function reasonCategory(reason: string | undefined): ReasonCategory {
+  const t = (reason ?? '').trim()
+  if (!/[\p{L}\p{N}]/u.test(t)) return 'uten'
+  return REASON_CATEGORIES.find(c => c.re.test(t))?.key ?? 'annet'
+}
+
 export interface Stats {
   ja: number
   nei: number
