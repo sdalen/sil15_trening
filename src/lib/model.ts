@@ -434,7 +434,7 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
   // Personer som har sluttet (markert i lagoppsettet) vises ikke noe sted.
   // Personer som bare finnes på ekstratreninger (andre årganger på Early Bird) tas heller ikke med.
   const active = [...byId.values()].filter(
-    p => !roster.get(p.id)?.removed && activities.some(a => a.kind !== 'ekstra' && p.statuses[a.idx] !== null),
+    p => !roster.get(p.id)?.removed && !hasQuit(p.id) && activities.some(a => a.kind !== 'ekstra' && p.statuses[a.idx] !== null),
   )
   // Med opplastet lagoppsett vises bare personene som står i det
   const people = only ? active.filter(p => only.has(p.id)) : active
@@ -480,6 +480,28 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
 
   return { activities, people, missing, hidden }
 }
+
+// ---------- spillere som har sluttet ----------
+
+/** Rask, synkron hash (cyrb53) – bare for å slippe navn i klartekst i koden, ikke kryptografisk */
+export function nameHash(id: string): string {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57
+  for (let i = 0; i < id.length; i++) {
+    const c = id.charCodeAt(i)
+    h1 = Math.imul(h1 ^ c, 2654435761)
+    h2 = Math.imul(h2 ^ c, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36)
+}
+
+/**
+ * Spillere som har sluttet: nameHash(fold(fullt navn)). Skjules uansett hvilken fil som lastes opp.
+ * Samme personer står med Rubic-id i scripts/sluttet.json, som holder dem utenfor eksporten.
+ */
+const QUIT = new Set<string>(["1tffskjawrp", "20iidud4z2n", "1goiqj2lubn"])
+export const hasQuit = (id: string) => QUIT.has(nameHash(id))
 
 // ---------- statistikk ----------
 
