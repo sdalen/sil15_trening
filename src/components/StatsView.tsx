@@ -1,4 +1,4 @@
-import { countStatuses, countsInStats, iceMinutes, personIceMinutes, reasonCategory, REASON_LABEL, type Activity, type Person, type ReasonCategory } from '../lib/model'
+import { countStatuses, countsInStats, iceMinutes, isApproved, personIceMinutes, reasonCategory, REASON_LABEL, type Activity, type Person, type ReasonCategory } from '../lib/model'
 import { hoursText, pctText, shortDate } from '../lib/ui'
 import type { Ctx } from '../ctx'
 import { Card, Empty, NrBadge, Pii } from './common'
@@ -82,14 +82,15 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
   const monthMax = Math.max(1, ...iceMonths.map(x => Math.max(x.avg, x.offered)))
 
   // Hvorfor kommer ikke spillerne? Avslag på passerte treninger, gruppert etter grunnen i Rubic
-  const declines = new Map<ReasonCategory, { n: number; texts: Map<string, number> }>()
+  const declines = new Map<ReasonCategory, { n: number; ok: number; texts: Map<string, number> }>()
   for (const a of trainActs)
     for (const p of people) {
       if (p.statuses[a.idx] !== 'nei') continue
       const text = (p.reasons[a.idx] ?? '').trim()
       const k = reasonCategory(text)
-      const d = declines.get(k) ?? { n: 0, texts: new Map<string, number>() }
+      const d = declines.get(k) ?? { n: 0, ok: 0, texts: new Map<string, number>() }
       d.n++
+      if (isApproved(p, a)) d.ok++
       if (k !== 'uten') d.texts.set(text, (d.texts.get(text) ?? 0) + 1)
       declines.set(k, d)
     }
@@ -99,6 +100,7 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
     .map(([k, d]) => ({ k, ...d }))
     .sort((x, y) => Number(x.k === 'annet' || x.k === 'uten') - Number(y.k === 'annet' || y.k === 'uten') || Number(x.k === 'uten') - Number(y.k === 'uten') || y.n - x.n)
   const declineMax = Math.max(1, ...declineRows.map(r => r.n))
+  const declineOk = declineRows.reduce((s, r) => s + r.ok, 0)
 
   return (
     <div className="space-y-4">
@@ -136,6 +138,7 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
                     </span>
                     <span className="relative h-3 flex-1">
                       <span className={`absolute inset-y-0 left-0 rounded-r ${r.k === 'uten' ? 'bg-slate-300' : 'bg-rose-400'}`} style={{ width: `${(r.n / declineMax) * 100}%` }} />
+                      {r.ok > 0 && <span className="absolute inset-y-0 left-0 bg-sky-500" style={{ width: `${(r.ok / declineMax) * 100}%` }} title={`${r.ok} godkjent`} />}
                     </span>
                     <span className="w-12 shrink-0 text-right font-bold tabular-nums">{r.n}</span>
                     <span className="w-12 shrink-0 text-right text-xs text-slate-500 tabular-nums">{Math.round((r.n / declineTotal) * 100)} %</span>
@@ -154,8 +157,9 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
               </li>
             ))}
           </ul>
+          <ApprovedPie ok={declineOk} total={declineTotal} />
           <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
-            Passerte treninger i valgt periode, for utvalget over. «Uten grunn» er avslag der det ikke står noe i Rubic.
+            Passerte treninger i valgt periode, for utvalget over. Blått = godkjent fravær (se Info). «Uten grunn» er avslag der det ikke står noe i Rubic, og er ikke godkjent.
           </p>
         </Card>
       )}
@@ -216,6 +220,35 @@ export default function StatsView({ ctx }: { ctx: Ctx }) {
           <ActList rows={sorted.slice(-5).reverse()} ctx={ctx} />
         </Card>
       </div>
+    </div>
+  )
+}
+
+/** Kakediagram: godkjent mot ikke godkjent fravær */
+function ApprovedPie({ ok, total }: { ok: number; total: number }) {
+  const r = 15.9155 // omkrets 100, så prosent kan brukes direkte i stroke-dasharray
+  const pct = (n: number) => Math.round((n / total) * 100)
+  const okPct = (ok / total) * 100
+  const parts = [
+    { label: 'Godkjent fravær', n: ok, dot: 'bg-sky-500' },
+    { label: 'Ikke godkjent', n: total - ok, dot: 'bg-rose-400' },
+  ]
+  return (
+    <div className="flex items-center gap-6 border-t border-slate-200 px-4 py-4">
+      <svg viewBox="0 0 42 42" className="h-28 w-28 shrink-0 -rotate-90" role="img" aria-label={`${pct(ok)} % godkjent fravær`}>
+        <circle cx="21" cy="21" r={r} fill="none" className="stroke-rose-400" strokeWidth="8" />
+        {ok > 0 && <circle cx="21" cy="21" r={r} fill="none" className="stroke-sky-500" strokeWidth="8" strokeDasharray={`${okPct} ${100 - okPct}`} />}
+      </svg>
+      <ul className="space-y-2 text-sm">
+        {parts.map(x => (
+          <li key={x.label} className="flex items-center gap-2">
+            <span className={`h-3 w-3 shrink-0 rounded-sm ${x.dot}`} />
+            <span className="w-32 font-semibold">{x.label}</span>
+            <span className="w-10 text-right font-bold tabular-nums">{x.n}</span>
+            <span className="w-12 text-right text-xs text-slate-500 tabular-nums">{pct(x.n)} %</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

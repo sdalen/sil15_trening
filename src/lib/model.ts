@@ -484,7 +484,7 @@ export function buildModel(main: CsvFile, matchFiles: CsvFile[], overrides: Over
 // ---------- statistikk ----------
 
 /** Avslag med godkjent grunn (annen idrett eller sykdom) – brukes av Furnes-siden */
-export const APPROVED_REASON = /fotball|futsal|hockey|syk|obos/i
+export const APPROVED_REASON = /fotb|foppal|futsal|hockey|syk|obos/i
 
 /**
  * Hockeysesongen starter (siste seriekamp i fotball for årgangen var 29.09.2026).
@@ -499,7 +499,7 @@ export const OTHER_AGE_GROUP = /\bu\s?1\d\b|årgang|\b20(0\d|1[0-46-9])\b|spille
 export function approvedReason(reason: string, date: string, staff = false) {
   if (/syk|begravelse|obos/i.test(reason) || OTHER_AGE_GROUP.test(reason)) return true
   if (staff && /jobb/i.test(reason)) return true
-  return /fotball|futsal/i.test(reason) && date < HOCKEY_SEASON_START
+  return /fotb|foppal|futsal/i.test(reason) && date < HOCKEY_SEASON_START
 }
 export const isApproved = (p: Person, a: Pick<Activity, 'idx' | 'date'>) => p.statuses[a.idx] === 'nei' && approvedReason(p.reasons[a.idx] ?? '', a.date, p.kind !== 'spiller')
 
@@ -510,7 +510,8 @@ export const isApproved = (p: Person, a: Pick<Activity, 'idx' | 'date'>) => p.st
 export const REASON_CATEGORIES = [
   { key: 'syk', label: 'Syk eller skadet', re: /syk|sjuk|forkj[øoö]l|skad|vond|forstu|vaksin|magesjau|frisk|form\b|legevakt|tannlege|slått|uheldig|feber|omgangs/i },
   { key: 'aargang', label: 'Hockey med annen årgang', re: OTHER_AGE_GROUP },
-  { key: 'idrett', label: 'Fotball og annen idrett', re: /fotb|foppal|futsal|kamp|cup|turnering|golf|friidrett|innebandy|bordtennis|håndball|\bski|svøm|cross|trening selv|egen trening/i },
+  // «cup», «kamp» og «turnering» alene er ikke nok – Dragons Cup er hockey. Idretten må nevnes.
+  { key: 'idrett', label: 'Fotball og annen idrett', re: /fotb|foppal|futsal|golf|friidrett|innebandy|bordtennis|håndball|\bski|svøm|cross|(trening|kamp) selv|egen (trening|kamp)/i },
   { key: 'reise', label: 'Reise, ferie og hytte', re: /reis|bortr|borte|ferie|hytt|tur\b|oslo|london|utland/i },
   { key: 'familie', label: 'Familie og sosialt', re: /bursdag|dåp|begravelse|famil|diskotek|foreldresamtale|konfirmasjon|bryllup|selskap/i },
   { key: 'jobb', label: 'Jobb', re: /jobb|overtid|konferanse|arbeid/i },
